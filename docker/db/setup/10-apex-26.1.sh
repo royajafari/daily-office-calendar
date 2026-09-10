@@ -1,11 +1,18 @@
 #!/bin/bash
-# Runs once, automatically, on the Oracle container's FIRST initialization
+# Runs automatically on the Oracle container's FIRST initialization
 # (gvenzl images execute every .sh/.sql in /container-entrypoint-initdb.d,
-# alphabetically, only when the data volume is empty).
+# alphabetically, only when the data volume is empty). Once the DB has
+# already been initialized once, this script no longer runs on its own —
+# re-invoke it manually against the running container instead:
+#
+#   docker exec -e APEX_ADMIN_PASSWORD=... -e APEX_REST_PASSWORD=... \
+#     daily-office-calendar-oracle-1 /container-entrypoint-initdb.d/10-apex-26.1.sh
 #
 # Requires:
-#   - docker/apex-dist/apex_26.1_en.zip  (official Oracle download — Gate G2,
-#     see docs/architecture.md; NOT distributed in this repo)
+#   - exactly one *.zip under docker/apex-dist/ (the official Oracle APEX
+#     26.1 download — Gate G2, see docs/architecture.md; NOT distributed in
+#     this repo, and NOT renamed — whatever Oracle's download page calls it
+#     is fine, this script just looks for "the one zip file" in that folder)
 #   - APEX_ADMIN_PASSWORD, APEX_REST_PASSWORD in docker/.env  (Gate G1)
 #
 # If the ZIP is missing, this script logs a message and exits 0 (success) so
@@ -15,14 +22,24 @@
 
 set -euo pipefail
 
-APEX_ZIP="/opt/oracle/apex-dist/apex_26.1_en.zip"
-APEX_INSTALL_DIR="/opt/oracle/apex-dist/unzipped"
+APEX_DIST_DIR="/opt/oracle/apex-dist"
+APEX_INSTALL_DIR="${APEX_DIST_DIR}/unzipped"
 
-if [ ! -f "$APEX_ZIP" ]; then
-  echo "[10-apex-26.1] $APEX_ZIP not found — skipping APEX install."
-  echo "[10-apex-26.1] Download the official Oracle APEX 26.1 ZIP and place it at docker/apex-dist/apex_26.1_en.zip, then recreate this container to install."
+mapfile -t apex_zips < <(find "$APEX_DIST_DIR" -maxdepth 1 -iname "*.zip" 2>/dev/null)
+
+if [ "${#apex_zips[@]}" -eq 0 ]; then
+  echo "[10-apex-26.1] No .zip found under $APEX_DIST_DIR — skipping APEX install."
+  echo "[10-apex-26.1] Download the official Oracle APEX 26.1 ZIP and place it (any filename) under docker/apex-dist/, then re-run this script."
   exit 0
 fi
+
+if [ "${#apex_zips[@]}" -gt 1 ]; then
+  echo "[10-apex-26.1] ERROR: more than one .zip found under $APEX_DIST_DIR: ${apex_zips[*]}" >&2
+  echo "[10-apex-26.1] Keep exactly one APEX distribution ZIP there." >&2
+  exit 1
+fi
+
+APEX_ZIP="${apex_zips[0]}"
 
 if [ -z "${APEX_ADMIN_PASSWORD:-}" ] || [ -z "${APEX_REST_PASSWORD:-}" ]; then
   echo "[10-apex-26.1] ERROR: APEX_ADMIN_PASSWORD and/or APEX_REST_PASSWORD are not set in docker/.env." >&2
