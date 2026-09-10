@@ -1,0 +1,66 @@
+name: daily-office-calendar
+
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:?set ORACLE_PASSWORD in docker/.env}
+      APP_USER: ${APP_USER:-daily_office}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:?set APP_USER_PASSWORD in docker/.env}
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      # gvenzl images run any .sql/.sh dropped here, alphabetically, on first init only.
+      - ./docker/db/setup:/container-entrypoint-initdb.d
+      - ./docker/apex-dist:/opt/oracle/apex-dist:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+
+  # profile "migrate": `docker compose --profile migrate run --rm liquibase`
+  liquibase:
+    image: liquibase/liquibase:4.29
+    profiles: ["migrate"]
+    depends_on:
+      oracle:
+        condition: service_healthy
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ./docker/drivers:/liquibase/lib
+    environment:
+      LIQUIBASE_COMMAND_URL: jdbc:oracle:thin:@oracle:1521/FREEPDB1
+      LIQUIBASE_COMMAND_USERNAME: ${APP_USER:-daily_office}
+      LIQUIBASE_COMMAND_PASSWORD: ${APP_USER_PASSWORD:?set APP_USER_PASSWORD in docker/.env}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: db/changelog/db.changelog-master.yaml
+    command: ["update"]
+
+  # profile "ords": `docker compose --profile ords up`
+  # Requires: docker login container-registry.oracle.com (accept the Oracle
+  # license there first) — this image is not on a public registry.
+  ords:
+    image: container-registry.oracle.com/database/ords:latest
+    profiles: ["ords"]
+    depends_on:
+      oracle:
+        condition: service_healthy
+    environment:
+      ORACLE_HOST: oracle
+      ORACLE_PORT: 1521
+      ORACLE_SERVICE: FREEPDB1
+      ORACLE_PWD: ${ORDS_SYS_PASSWORD:?set ORDS_SYS_PASSWORD in docker/.env}
+      # exact variable names are validated against Oracle's published ords
+      # quick-start image docs during the real Phase 7 bring-up; adjust here
+      # if the running container reports a different expected set.
+    ports:
+      - "8080:8080"
+    volumes:
+      - ords-config:/etc/ords/config
+
+volumes:
+  oracle-data:
+  ords-config:
