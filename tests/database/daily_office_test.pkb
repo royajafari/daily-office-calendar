@@ -2,15 +2,16 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
 
     PROCEDURE rejects_conflict IS
         l_raised BOOLEAN := FALSE;
+        l_dummy_id office_events.id%TYPE;
     BEGIN
-        daily_office_api.create_event(
+        l_dummy_id := daily_office_api.create_event(
             p_event_type => 'MEETING', p_title => 'Base meeting',
             p_starts_at  => TIMESTAMP '2026-01-01 09:00:00 +00:00',
             p_ends_at    => TIMESTAMP '2026-01-01 10:00:00 +00:00',
             p_created_by => 'head1');
 
         BEGIN
-            daily_office_api.create_event(
+            l_dummy_id := daily_office_api.create_event(
                 p_event_type => 'MEETING', p_title => 'Overlapping meeting',
                 p_starts_at  => TIMESTAMP '2026-01-01 09:30:00 +00:00',
                 p_ends_at    => TIMESTAMP '2026-01-01 10:30:00 +00:00',
@@ -25,9 +26,10 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
 
     PROCEDURE rejects_invalid_range IS
         l_raised BOOLEAN := FALSE;
+        l_dummy_id office_events.id%TYPE;
     BEGIN
         BEGIN
-            daily_office_api.create_event(
+            l_dummy_id := daily_office_api.create_event(
                 p_event_type => 'MEETING', p_title => 'Backwards range',
                 p_starts_at  => TIMESTAMP '2026-01-02 10:00:00 +00:00',
                 p_ends_at    => TIMESTAMP '2026-01-02 09:00:00 +00:00',
@@ -74,7 +76,7 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
         FROM office_requests WHERE id = l_req_id;
 
         ut.expect(l_status).to_equal('APPROVED');
-        ut.expect(l_event_id).to_not_be_null();
+        ut.expect(l_event_id).to_be_not_null();
 
         SELECT COUNT(*) INTO l_event_count FROM office_events WHERE id = l_event_id;
         ut.expect(l_event_count).to_equal(1);
@@ -101,8 +103,9 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
 
     PROCEDURE availability_hides_title IS
         l_count NUMBER;
+        l_dummy_id office_events.id%TYPE;
     BEGIN
-        daily_office_api.create_event(
+        l_dummy_id := daily_office_api.create_event(
             p_event_type => 'MEETING', p_title => 'Confidential salary review',
             p_starts_at  => TIMESTAMP '2026-02-05 09:00:00 +00:00',
             p_ends_at    => TIMESTAMP '2026-02-05 10:00:00 +00:00',

@@ -274,11 +274,23 @@ CREATE OR REPLACE PACKAGE BODY daily_office_api AS
         l_id  calendar_sync_queue.id%TYPE;
         l_row calendar_sync_queue%ROWTYPE;
     BEGIN
+        -- Oracle rejects FOR UPDATE on any query whose row source is an
+        -- ordered/row-limited view (ORA-02014), including the classic
+        -- ROWNUM-over-ORDER BY idiom. So the oldest PENDING id is found
+        -- first without a lock, then locked specifically by id. Under rare
+        -- concurrent contention another worker may grab that exact row
+        -- first (SKIP LOCKED then finds nothing) — this call simply returns
+        -- NULL and the next poll cycle picks up whatever is left; no row is
+        -- ever double-claimed.
         SELECT id INTO l_id
         FROM calendar_sync_queue
         WHERE status = 'PENDING'
         ORDER BY created_at
-        FETCH FIRST 1 ROWS ONLY
+        FETCH FIRST 1 ROWS ONLY;
+
+        SELECT id INTO l_id
+        FROM calendar_sync_queue
+        WHERE id = l_id
         FOR UPDATE SKIP LOCKED;
 
         UPDATE calendar_sync_queue
