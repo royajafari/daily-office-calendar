@@ -15,6 +15,7 @@ node_modules/
 .npm-cache/
 out/
 coverage/
+dist/
 
 # Logs
 *.log

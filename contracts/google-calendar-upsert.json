@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://daily-office-calendar/contracts/google-calendar-upsert.json",
+  "title": "Google Calendar Sync Operation",
+  "description": "Contract between calendar_sync_queue rows (via ORDS) and the sync-worker's Google Calendar API call. idempotencyKey MUST be forwarded as Google Calendar API's requestId/idempotency mechanism so retries never create duplicate events (DO-AC-06).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operation", "idempotencyKey", "event"],
+  "properties": {
+    "operation": {
+      "type": "string",
+      "enum": ["UPSERT", "DELETE"]
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 200,
+      "description": "Stable across retries of the same calendar_sync_queue row; sourced from calendar_sync_queue.idempotency_key."
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eventId", "startsAt", "endsAt"],
+      "properties": {
+        "eventId": {
+          "type": "integer",
+          "description": "office_events.id"
+        },
+        "googleEventId": {
+          "type": ["string", "null"],
+          "description": "Set once known, so UPSERT becomes an update instead of an insert and DELETE can target the right Google event."
+        },
+        "title": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "location": {
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "startsAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with offset, mirrors office_events.starts_at"
+        },
+        "endsAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 with offset, mirrors office_events.ends_at"
+        }
+      }
+    }
+  }
+}
