@@ -2,7 +2,10 @@ name: daily-office-calendar
 
 services:
   oracle:
-    image: gvenzl/oracle-free:23-slim
+    # "full" is required, not "slim"/regular — both of those strip the
+    # XML DB (XDB) component that Oracle APEX's installer hard-requires
+    # (confirmed against gvenzl/oci-oracle-free's ImageDetails.md).
+    image: gvenzl/oracle-free:23-full
     environment:
       ORACLE_PASSWORD: ${ORACLE_PASSWORD:?set ORACLE_PASSWORD in docker/.env}
       APP_USER: ${APP_USER:-daily_office}
