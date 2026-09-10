@@ -1,0 +1,33 @@
+databaseChangeLog:
+  - changeSet:
+      id: daily-office-001-schema
+      author: royajafari
+      comment: Core tables for office_events, office_requests, calendar_sync_queue, app_user_roles
+      changes:
+        - sqlFile:
+            path: db/packages/001_daily_office_schema.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true
+      rollback:
+        - sql:
+            sql: |
+              DROP TABLE calendar_sync_queue PURGE;
+              DROP TABLE office_requests PURGE;
+              DROP TABLE office_events PURGE;
+              DROP TABLE app_user_roles PURGE;
+
+  - changeSet:
+      id: daily-office-002-api-package
+      author: royajafari
+      comment: daily_office_api package (conflict check, CRUD, requests, availability, sync queue)
+      changes:
+        - sqlFile:
+            path: db/packages/002_daily_office_api.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: false
+            endDelimiter: "/"
+      rollback:
+        - sql:
+            sql: DROP PACKAGE daily_office_api;

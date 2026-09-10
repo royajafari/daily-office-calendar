@@ -1,0 +1,4 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/2026-09-10-01-daily-office.yaml
+      relativeToChangelogFile: false

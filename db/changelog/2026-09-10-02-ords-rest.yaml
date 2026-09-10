@@ -1,0 +1,23 @@
+# NOT included by db.changelog-master.yaml on purpose: the ORDS.* PL/SQL API
+# used here only exists after `ords install` / the `ords` Docker profile has
+# enabled REST for this schema at least once. Apply explicitly once ORDS is up:
+#
+#   liquibase --changelog-file=db/changelog/2026-09-10-02-ords-rest.yaml update
+#
+databaseChangeLog:
+  - changeSet:
+      id: daily-office-003-ords-module
+      author: royajafari
+      comment: ORDS REST module exposing availability, requests and sync-queue endpoints
+      changes:
+        - sqlFile:
+            path: db/packages/003_ords_modules.sql
+            relativeToChangelogFile: false
+            splitStatements: false
+      rollback:
+        - sql:
+            sql: |
+              BEGIN
+                ords.delete_module(p_module_name => 'daily.office');
+                COMMIT;
+              END;

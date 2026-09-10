@@ -1,0 +1,19 @@
+# NOT included by db.changelog-master.yaml: depends on APEX_ERROR, which only
+# exists after APEX 26.1 is installed in this schema/workspace. Apply once,
+# after `docker compose --profile ords up` (or equivalent APEX install):
+#
+#   liquibase --changelog-file=db/changelog/2026-09-10-03-apex-error-handler.yaml update
+#
+databaseChangeLog:
+  - changeSet:
+      id: daily-office-004-apex-error-handler
+      author: royajafari
+      comment: Page Error Handling Function translating ORA-2000x into Persian messages (DO-AC-05)
+      changes:
+        - sqlFile:
+            path: apex/shared/error-handler.sql
+            relativeToChangelogFile: false
+            splitStatements: false
+      rollback:
+        - sql:
+            sql: DROP FUNCTION daily_office_pkg_error_handler;
