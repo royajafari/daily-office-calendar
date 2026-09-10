@@ -1,0 +1,51 @@
+# APEX 26.1 application blueprint — Daily Office Calendar
+#
+# این فایل DSL داخلی پروژه است (نه فرمت رسمی Oracle) که قصد صفحات/مجوزها را
+# پیش از وجود یک نمونه‌ی زنده‌ی APEX مستند می‌کند. لایه‌ی واقعی و اجراشدنی —
+# export واقعی APEX (f<id>.sql تولیدشده با `apex export` از App Builder) —
+# در فاز ۷، بعد از بالا آمدن Docker/Oracle/APEX/ORDS، در apex/exports/ کامیت
+# می‌شود. تا آن زمان، این فایل منبع حقیقت طراحی و traceability است.
+
+application:
+  alias: DAILY_OFFICE
+  name: "دفتر کار روزانه"
+  schema: DAILY_OFFICE
+  compatibility_mode: "26.1"
+
+  authentication:
+    scheme: APEX_ACCOUNTS
+    note: >
+      برای استقرار سازمانی، این scheme به APEX Enterprise SSO (LDAP/SAML) تغییر
+      می‌کند؛ APEX_ACCOUNTS فقط برای توسعه/دمو استفاده می‌شود.
+
+  authorization_schemes:
+    - name: Is Office Head
+      type: PLSQL_FUNCTION_RETURNING_BOOLEAN
+      applies_to: [pages 10 40 50, region "Calendar CRUD", region "Review actions", region "Sync monitoring"]
+      code: |
+        RETURN EXISTS (
+          SELECT 1 FROM app_user_roles
+          WHERE user_name = :APP_USER AND user_role = 'OFFICE_HEAD'
+        );
+
+    - name: Is Authenticated Staff
+      type: PLSQL_FUNCTION_RETURNING_BOOLEAN
+      applies_to: [pages 20 30, deep linking default]
+      code: "RETURN :APP_USER IS NOT NULL;"
+
+  session_state_protection: ENABLED
+  deep_linking: AUTHENTICATED_ONLY
+
+  navigation:
+    - { page: 10, title: "تقویم رئیس",            icon: fa-calendar,        auth: Is Office Head }
+    - { page: 20, title: "زمان‌های در دسترس",       icon: fa-clock-o,         auth: Is Authenticated Staff }
+    - { page: 30, title: "ثبت درخواست",            icon: fa-plus-square,     auth: Is Authenticated Staff }
+    - { page: 40, title: "بررسی درخواست‌ها",        icon: fa-check-square-o,  auth: Is Office Head }
+    - { page: 50, title: "نظارت بر همگام‌سازی",     icon: fa-refresh,         auth: Is Office Head }
+
+  pages:
+    - apex/pages/page-010-calendar.apexlang
+    - apex/pages/page-020-availability.apexlang
+    - apex/pages/page-030-request.apexlang
+    - apex/pages/page-040-review.apexlang
+    - apex/pages/page-050-sync-monitoring.apexlang

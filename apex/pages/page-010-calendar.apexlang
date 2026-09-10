@@ -1,0 +1,61 @@
+# Page 10 — تقویم رئیس (CRUD کامل، فقط OFFICE_HEAD)
+# Traceability: DO-AC-01, DO-AC-05 (spec/office-calendar-mvp.md)
+
+page:
+  id: 10
+  name: "تقویم رئیس"
+  authorization: Is Office Head
+  page_error_handling_function: daily_office_pkg_error_handler
+  # نگاشت ORA-20001/-20002/-20003 به پیام‌های فارسی قابل‌فهم به‌جای exception خام
+  # (DO-AC-05) — تابع در apex/pages/shared/error-handler.sql تعریف می‌شود.
+
+  regions:
+    - name: "Office Events"
+      type: Interactive Report
+      source: |
+        SELECT id, event_type, title, location, starts_at, ends_at, status
+        FROM office_events
+        WHERE status = 'CONFIRMED'
+        ORDER BY starts_at
+      row_actions: [Edit, Delete]
+
+    - name: "Calendar CRUD"
+      type: Static Content (modal form)
+      items:
+        - { name: P10_EVENT_ID,    type: Hidden }
+        - { name: P10_EVENT_TYPE,  type: Select List, lov: "MEETING;MEETING,MISSION;MISSION,APPOINTMENT;APPOINTMENT,OTHER;OTHER", required: true }
+        - { name: P10_TITLE,       type: Text Field, required: true, max_length: 200 }
+        - { name: P10_LOCATION,    type: Text Field, max_length: 200 }
+        - { name: P10_DESCRIPTION, type: Textarea }
+        - { name: P10_STARTS_AT,   type: Date Picker (with time), required: true }
+        - { name: P10_ENDS_AT,     type: Date Picker (with time), required: true }
+
+  processes:
+    - name: "Save Event"
+      point: On Submit (button SAVE)
+      type: PL/SQL
+      code: |
+        IF :P10_EVENT_ID IS NULL THEN
+          :P10_EVENT_ID := daily_office_api.create_event(
+            p_event_type  => :P10_EVENT_TYPE,
+            p_title       => :P10_TITLE,
+            p_starts_at   => :P10_STARTS_AT,
+            p_ends_at     => :P10_ENDS_AT,
+            p_created_by  => :APP_USER,
+            p_location    => :P10_LOCATION,
+            p_description => :P10_DESCRIPTION);
+        ELSE
+          daily_office_api.update_event(
+            p_event_id    => :P10_EVENT_ID,
+            p_title       => :P10_TITLE,
+            p_starts_at   => :P10_STARTS_AT,
+            p_ends_at     => :P10_ENDS_AT,
+            p_location    => :P10_LOCATION,
+            p_description => :P10_DESCRIPTION);
+        END IF;
+      # -20002 اینجا توسط page_error_handling_function گرفته و به پیام «تداخل زمانی» ترجمه می‌شود.
+
+    - name: "Delete Event"
+      point: On Submit (button DELETE)
+      type: PL/SQL
+      code: "daily_office_api.delete_event(p_event_id => :P10_EVENT_ID);"

@@ -1,0 +1,27 @@
+# Page 20 — زمان‌های در دسترس (فقط busy/free، برای STAFF)
+# Traceability: DO-AC-02 (spec/office-calendar-mvp.md)
+
+page:
+  id: 20
+  name: "زمان‌های در دسترس"
+  authorization: Is Authenticated Staff
+
+  regions:
+    - name: "Date Range Filter"
+      type: Static Content
+      items:
+        - { name: P20_FROM, type: Date Picker, default: "TRUNC(SYSDATE)" }
+        - { name: P20_TO,   type: Date Picker, default: "TRUNC(SYSDATE) + 14" }
+
+    - name: "Busy Blocks"
+      type: Classic Report (read-only, no edit link, no title/description column)
+      source: |
+        SELECT starts_at, ends_at
+        FROM TABLE(daily_office_api.get_availability(
+               TO_TIMESTAMP_TZ(:P20_FROM, 'YYYY-MM-DD') ,
+               TO_TIMESTAMP_TZ(:P20_TO,   'YYYY-MM-DD')))
+        ORDER BY starts_at
+      note: >
+        get_availability فقط starts_at/ends_at برمی‌گرداند (t_busy_row) —
+        عنوان/توضیحات رویداد در سطح PL/SQL هرگز به این صفحه نمی‌رسد، بنابراین
+        نشتی حتی با تغییر SQL region هم رخ نمی‌دهد (DO-AC-02).

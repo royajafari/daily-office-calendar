@@ -1,0 +1,47 @@
+# Page 40 — بررسی درخواست‌ها (تأیید/رد، فقط OFFICE_HEAD)
+# Traceability: DO-AC-04 (spec/office-calendar-mvp.md)
+
+page:
+  id: 40
+  name: "بررسی درخواست‌ها"
+  authorization: Is Office Head
+  page_error_handling_function: daily_office_pkg_error_handler
+
+  regions:
+    - name: "Pending Requests"
+      type: Interactive Report
+      source: |
+        SELECT id, requested_by, event_type, title, note, starts_at, ends_at, created_at
+        FROM office_requests
+        WHERE status = 'PENDING'
+        ORDER BY created_at
+      row_actions: ["Approve", "Reject"]
+
+    - name: "Review History"
+      type: Interactive Report (collapsed by default)
+      source: |
+        SELECT id, requested_by, event_type, title, status, reviewed_by, reviewed_at, resulting_event_id
+        FROM office_requests
+        WHERE status != 'PENDING'
+        ORDER BY reviewed_at DESC
+
+  processes:
+    - name: "Approve Request"
+      point: On Click (row action "Approve")
+      type: PL/SQL
+      code: |
+        daily_office_api.review_request(
+          p_request_id  => :P40_REQUEST_ID,
+          p_decision    => 'APPROVED',
+          p_reviewed_by => :APP_USER);
+      success_message: "درخواست تأیید شد و یک رویداد در تقویم ایجاد و در صف همگام‌سازی قرار گرفت."
+
+    - name: "Reject Request"
+      point: On Click (row action "Reject")
+      type: PL/SQL
+      code: |
+        daily_office_api.review_request(
+          p_request_id  => :P40_REQUEST_ID,
+          p_decision    => 'REJECTED',
+          p_reviewed_by => :APP_USER);
+      success_message: "درخواست رد شد."

@@ -1,0 +1,39 @@
+# Page 30 — ثبت درخواست (STAFF)
+# Traceability: DO-AC-03, DO-AC-05 (spec/office-calendar-mvp.md)
+
+page:
+  id: 30
+  name: "ثبت درخواست"
+  authorization: Is Authenticated Staff
+  page_error_handling_function: daily_office_pkg_error_handler
+
+  regions:
+    - name: "Request Form"
+      type: Static Content
+      items:
+        - { name: P30_EVENT_TYPE, type: Select List, lov: "MEETING;MEETING,MISSION;MISSION,APPOINTMENT;APPOINTMENT,OTHER;OTHER", required: true }
+        - { name: P30_TITLE,      type: Text Field, required: true, max_length: 200 }
+        - { name: P30_NOTE,       type: Textarea }
+        - { name: P30_STARTS_AT,  type: Date Picker (with time), required: true }
+        - { name: P30_ENDS_AT,    type: Date Picker (with time), required: true }
+
+  validations:
+    - name: "ends_at > starts_at"
+      type: PL/SQL Expression
+      code: ":P30_ENDS_AT > :P30_STARTS_AT"
+      error_message: "زمان پایان باید بعد از زمان شروع باشد."
+      # اعتبارسنجی سمت کلاینت/صفحه؛ منطق نهایی هم در submit_request (ORA-20001) تکرار می‌شود (defense in depth).
+
+  processes:
+    - name: "Submit Request"
+      point: On Submit (button SUBMIT)
+      type: PL/SQL
+      code: |
+        :P30_REQUEST_ID := daily_office_api.submit_request(
+          p_requested_by => :APP_USER,
+          p_event_type   => :P30_EVENT_TYPE,
+          p_title        => :P30_TITLE,
+          p_starts_at    => :P30_STARTS_AT,
+          p_ends_at      => :P30_ENDS_AT,
+          p_note         => :P30_NOTE);
+      success_message: "درخواست شما ثبت شد و در انتظار تأیید رئیس اداره است."

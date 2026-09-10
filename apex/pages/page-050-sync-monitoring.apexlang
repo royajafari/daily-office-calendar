@@ -1,0 +1,24 @@
+# Page 50 — نظارت بر همگام‌سازی Google Calendar (فقط OFFICE_HEAD)
+# Traceability: DO-AC-06, DO-AC-07 (spec/office-calendar-mvp.md)
+
+page:
+  id: 50
+  name: "نظارت بر همگام‌سازی"
+  authorization: Is Office Head
+
+  regions:
+    - name: "Sync Queue"
+      type: Interactive Report (auto-refresh 30s)
+      source: |
+        SELECT q.id, q.event_id, e.title, q.operation, q.status, q.attempts,
+               q.last_error, q.created_at, q.processed_at
+        FROM calendar_sync_queue q
+        JOIN office_events e ON e.id = q.event_id
+        ORDER BY q.created_at DESC
+      highlight:
+        - { when: "status = 'FAILED'", style: danger }
+        - { when: "status = 'PENDING' AND attempts > 0", style: warning }
+        - { when: "status = 'DONE'", style: success }
+      note: >
+        نمایش idempotency_key به‌صورت readonly برای اثبات این‌که retryهای
+        FAILED همان ردیف را دوباره پردازش می‌کنند، نه ردیف تکراری (DO-AC-06).
