@@ -6,6 +6,7 @@ export interface FieldError {
 }
 
 const VALID_EVENT_TYPES: EventType[] = ["MEETING", "MISSION", "APPOINTMENT", "OTHER"];
+const MIN_DURATION_MINUTES = 15;
 
 /**
  * Mirrors the checks daily_office_api.submit_request enforces in the real
@@ -45,6 +46,11 @@ export function validateAppointmentRequest(
       errors.push({ field: "startsAt", message: "قالب تاریخ/زمان نامعتبر است." });
     } else if (ends <= starts) {
       errors.push({ field: "endsAt", message: "زمان پایان باید بعد از زمان شروع باشد." });
+    } else if ((ends.getTime() - starts.getTime()) / 60000 < MIN_DURATION_MINUTES) {
+      errors.push({
+        field: "endsAt",
+        message: `مدت زمان باید حداقل ${MIN_DURATION_MINUTES} دقیقه باشد.`,
+      });
     } else if (starts < new Date()) {
       errors.push({ field: "startsAt", message: "زمان شروع نمی‌تواند در گذشته باشد." });
     }

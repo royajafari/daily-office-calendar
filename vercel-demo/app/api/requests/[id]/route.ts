@@ -42,6 +42,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     status: demoRequest.status,
     startsAt: demoRequest.startsAt,
     endsAt: demoRequest.endsAt,
-    reviewedAt: null,
+    reviewedAt: demoRequest.reviewedAt ?? null,
   });
 }

@@ -43,6 +43,22 @@ describe("validateAppointmentRequest", () => {
     expect(errors.some((e) => e.field === "endsAt")).toBe(true);
   });
 
+  it("rejects a duration shorter than 15 minutes (mirrors ORA-20007)", () => {
+    const errors = validateAppointmentRequest({
+      ...VALID_INPUT,
+      endsAt: new Date(new Date(startsAt).getTime() + 10 * 60 * 1000).toISOString(),
+    });
+    expect(errors.some((e) => e.field === "endsAt")).toBe(true);
+  });
+
+  it("accepts a duration of exactly 15 minutes", () => {
+    const errors = validateAppointmentRequest({
+      ...VALID_INPUT,
+      endsAt: new Date(new Date(startsAt).getTime() + 15 * 60 * 1000).toISOString(),
+    });
+    expect(errors).toEqual([]);
+  });
+
   it("rejects a startsAt in the past", () => {
     const errors = validateAppointmentRequest({
       ...VALID_INPUT,
