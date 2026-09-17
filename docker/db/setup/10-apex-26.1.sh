@@ -23,7 +23,9 @@
 set -euo pipefail
 
 APEX_DIST_DIR="/opt/oracle/apex-dist"
-APEX_INSTALL_DIR="${APEX_DIST_DIR}/unzipped"
+# docker/apex-dist is bind-mounted read-only (docker-compose.yml), so the
+# distribution is unzipped to a separate, writable location instead.
+APEX_INSTALL_DIR="/opt/oracle/apex-unzipped"
 
 mapfile -t apex_zips < <(find "$APEX_DIST_DIR" -maxdepth 1 -iname "*.zip" 2>/dev/null)
 
@@ -52,24 +54,36 @@ mkdir -p "$APEX_INSTALL_DIR"
 unzip -q -o "$APEX_ZIP" -d "$APEX_INSTALL_DIR"
 APEX_HOME="$APEX_INSTALL_DIR/apex"
 
+# apexins.sql / apxchpwd.sql / apex_rest_config.sql all @-include sibling
+# scripts (e.g. core/scripts/set_appun.sql) using paths relative to the
+# CURRENT WORKING DIRECTORY of sqlplus, not relative to APEX_HOME — so we
+# must actually be in that directory when invoking them, or every include
+# fails with SP2-0310 and everything downstream cascades into bogus
+# interactive prompts.
+cd "$APEX_HOME"
+
 echo "[10-apex-26.1] Running apexins.sql (this can take several minutes)..."
 sqlplus -s / as sysdba <<SQL
+WHENEVER SQLERROR EXIT SQL.SQLCODE
 ALTER SESSION SET CONTAINER = FREEPDB1;
-@${APEX_HOME}/apexins.sql SYSAUX SYSAUX TEMP /i/
+@apexins.sql SYSAUX SYSAUX TEMP /i/
 SQL
 
 echo "[10-apex-26.1] Setting APEX admin password..."
 sqlplus -s / as sysdba <<SQL
+WHENEVER SQLERROR EXIT SQL.SQLCODE
 ALTER SESSION SET CONTAINER = FREEPDB1;
-@${APEX_HOME}/apxchpwd.sql
-${APEX_ADMIN_PASSWORD}
+@apxchpwd.sql
+
+
 ${APEX_ADMIN_PASSWORD}
 SQL
 
 echo "[10-apex-26.1] Configuring APEX RESTful services (ORDS_PUBLIC_USER / APEX_PUBLIC_USER)..."
 sqlplus -s / as sysdba <<SQL
+WHENEVER SQLERROR EXIT SQL.SQLCODE
 ALTER SESSION SET CONTAINER = FREEPDB1;
-@${APEX_HOME}/apex_rest_config.sql
+@apex_rest_config.sql
 ${APEX_REST_PASSWORD}
 ${APEX_REST_PASSWORD}
 SQL
