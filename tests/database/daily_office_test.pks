@@ -12,6 +12,12 @@ CREATE OR REPLACE PACKAGE daily_office_test AS
     --%test(submit_request rejects a starts_at in the past with ORA-20006)
     PROCEDURE rejects_past_start_time;
 
+    --%test(submit_request rejects a slot already covered by a confirmed event)
+    PROCEDURE request_rejects_confirmed_conflict;
+
+    --%test(submit_request allows two competing PENDING requests for the same open slot)
+    PROCEDURE request_allows_competing_pending;
+
     --%test(submit_request creates a PENDING request without an event)
     PROCEDURE creates_pending_request;
 

@@ -33,7 +33,7 @@
 
 | کد | معیار | نحوه‌ی اعتبارسنجی |
 |---|---|---|
-| DO-AC-01 | ایجاد یا تأیید رویداد که با یک رویداد موجود تداخل زمانی دارد، رد می‌شود (خطای `ORA-20002`). | تست utPLSQL `rejects_conflict` |
+| DO-AC-01 | ایجاد یا تأیید رویداد که با یک رویداد موجود تداخل زمانی دارد، رد می‌شود (خطای `ORA-20002`). ثبت درخواست برای بازه‌ای که از قبل CONFIRMED شده هم رد می‌شود؛ اما چند درخواست هم‌زمان (PENDING) برای یک بازه‌ی هنوز آزاد مجاز است — رئیس/منشی یکی را تأیید می‌کند. | تست‌های utPLSQL `rejects_conflict`, `request_rejects_confirmed_conflict`, `request_allows_competing_pending` |
 | DO-AC-02 | کاربر STAFF فقط بازه‌های busy/free را می‌بیند؛ عنوان/توضیحات رویداد برایش قابل مشاهده نیست. | تست utPLSQL `availability_hides_title` + بازبینی صفحه‌ی Availability |
 | DO-AC-03 | ثبت درخواست توسط STAFF وضعیت اولیه‌ی `PENDING` می‌گیرد و رویدادی بلافاصله ساخته نمی‌شود. | تست utPLSQL `creates_pending_request` |
 | DO-AC-04 | تأیید یک درخواست دقیقاً یک رویداد پیوندی می‌سازد و آن را در صف همگام‌سازی قرار می‌دهد؛ رد درخواست رویدادی نمی‌سازد. | تست utPLSQL `approval_creates_event` |
@@ -45,7 +45,7 @@
 
 | معیار | صفحه‌ی APEX | Changeset Liquibase | تست |
 |---|---|---|---|
-| DO-AC-01 | `apex/pages/page-010-calendar.apexlang` | `2026-09-10-01-daily-office.yaml` (`office_events`, تریگر تداخل) | `tests/database/daily_office_test.pkb::rejects_conflict` |
+| DO-AC-01 | `apex/pages/page-010-calendar.apexlang`, `page-030-request.apexlang` | `2026-09-10-01-daily-office.yaml` (`office_events`, `daily_office_api.check_conflict`) | `tests/database/daily_office_test.pkb::rejects_conflict`, `::request_rejects_confirmed_conflict`, `::request_allows_competing_pending` |
 | DO-AC-02 | `apex/pages/page-020-availability.apexlang` | همان (`daily_office_api.get_availability`) | `tests/database/daily_office_test.pkb::availability_hides_title` |
 | DO-AC-03 | `apex/pages/page-030-request.apexlang` | همان (`office_requests`) | `tests/database/daily_office_test.pkb::creates_pending_request` |
 | DO-AC-04 | `apex/pages/page-040-review.apexlang` | همان (`daily_office_api.review_request`) | `tests/database/daily_office_test.pkb::approval_creates_event` |

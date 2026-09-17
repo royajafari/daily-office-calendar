@@ -59,6 +59,52 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
         ut.expect(l_raised).to_be_true();
     END rejects_past_start_time;
 
+    PROCEDURE request_rejects_confirmed_conflict IS
+        l_raised BOOLEAN := FALSE;
+        l_event_id office_events.id%TYPE;
+        l_dummy_id office_requests.id%TYPE;
+    BEGIN
+        l_event_id := daily_office_api.create_event(
+            p_event_type => 'MEETING', p_title => 'Already booked',
+            p_starts_at  => SYSTIMESTAMP + INTERVAL '20' DAY,
+            p_ends_at    => SYSTIMESTAMP + INTERVAL '20' DAY + INTERVAL '1' HOUR,
+            p_created_by => 'head1');
+
+        BEGIN
+            l_dummy_id := daily_office_api.submit_request(
+                p_requested_by => 'staff1', p_event_type => 'MEETING', p_title => 'Same slot',
+                p_starts_at => SYSTIMESTAMP + INTERVAL '20' DAY + INTERVAL '30' MINUTE,
+                p_ends_at   => SYSTIMESTAMP + INTERVAL '20' DAY + INTERVAL '90' MINUTE);
+        EXCEPTION
+            WHEN daily_office_api.e_conflict THEN
+                l_raised := TRUE;
+        END;
+
+        ut.expect(l_raised).to_be_true();
+    END request_rejects_confirmed_conflict;
+
+    PROCEDURE request_allows_competing_pending IS
+        l_req_id_1 office_requests.id%TYPE;
+        l_req_id_2 office_requests.id%TYPE;
+        l_count NUMBER;
+    BEGIN
+        l_req_id_1 := daily_office_api.submit_request(
+            p_requested_by => 'staff1', p_event_type => 'MEETING', p_title => 'Contender A',
+            p_starts_at => SYSTIMESTAMP + INTERVAL '21' DAY,
+            p_ends_at   => SYSTIMESTAMP + INTERVAL '21' DAY + INTERVAL '1' HOUR);
+
+        l_req_id_2 := daily_office_api.submit_request(
+            p_requested_by => 'staff2', p_event_type => 'MEETING', p_title => 'Contender B',
+            p_starts_at => SYSTIMESTAMP + INTERVAL '21' DAY,
+            p_ends_at   => SYSTIMESTAMP + INTERVAL '21' DAY + INTERVAL '1' HOUR);
+
+        SELECT COUNT(*) INTO l_count
+        FROM office_requests
+        WHERE id IN (l_req_id_1, l_req_id_2) AND status = 'PENDING';
+
+        ut.expect(l_count).to_equal(2);
+    END request_allows_competing_pending;
+
     PROCEDURE creates_pending_request IS
         l_req_id office_requests.id%TYPE;
         l_status office_requests.status%TYPE;

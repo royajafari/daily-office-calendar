@@ -191,6 +191,13 @@ CREATE OR REPLACE PACKAGE BODY daily_office_api AS
             raise_application_error(-20006, 'starts_at must not be in the past.');
         END IF;
 
+        -- Reject only if the slot is already CONFIRMED (booked). Multiple
+        -- PENDING requests for the same still-open slot are allowed to
+        -- coexist on purpose — the reviewer picks one; approving it then
+        -- conflict-checks again via create_event, so a competing request
+        -- can never be approved on top of an already-confirmed one.
+        check_conflict(p_starts_at, p_ends_at);
+
         INSERT INTO office_requests (requested_by, event_type, title, note, starts_at, ends_at)
         VALUES (p_requested_by, p_event_type, p_title, p_note, p_starts_at, p_ends_at)
         RETURNING id INTO l_id;

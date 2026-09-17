@@ -11,6 +11,7 @@
 -- Endpoints:
 --   GET  /ords/daily-office/availability?from=...&to=...    -> busy intervals only (STAFF-safe, public)
 --   POST /ords/daily-office/requests                        -> submit_request (STAFF-facing, used by vercel-demo)
+--   GET  /ords/daily-office/requests/:request_id             -> status lookup by id (STAFF-safe, used by vercel-demo)
 --   POST /ords/daily-office/sync-queue/next                 -> claim_next_sync_item (sync-worker only — restrict via ORDS privilege group, see docker/README.md)
 --   GET  /ords/daily-office/sync-queue/event/:event_id       -> event snapshot for the sync-worker (sync-worker only)
 --   POST /ords/daily-office/sync-queue/:queue_id/result      -> mark_sync_result (sync-worker only)
@@ -85,6 +86,29 @@ BEGIN
         p_source_type        => 'RESPONSE',
         p_param_type         => 'INT',
         p_access_method      => 'OUT'
+    );
+
+    ---------------------------------------------------------------------
+    -- GET requests/:request_id (STAFF checks their own request's status
+    -- using the id shown right after submission — no auth layer in this
+    -- MVP, so this is a "confirmation code" style lookup, not a listing;
+    -- it never exposes other requests)
+    ---------------------------------------------------------------------
+    ords.define_template(
+        p_module_name => 'daily.office',
+        p_pattern     => 'requests/:request_id'
+    );
+
+    ords.define_handler(
+        p_module_name => 'daily.office',
+        p_pattern     => 'requests/:request_id',
+        p_method      => 'GET',
+        p_source_type => ords.source_type_query,
+        p_source      => q'[
+            SELECT id, event_type, title, status, starts_at, ends_at, reviewed_at
+            FROM   office_requests
+            WHERE  id = :request_id
+        ]'
     );
 
     ---------------------------------------------------------------------
