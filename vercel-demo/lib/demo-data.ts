@@ -7,9 +7,11 @@ export const DEMO_BUSY_BLOCKS: BusyBlock[] = [
   { startsAt: "2026-09-16T13:00:00+03:30", endsAt: "2026-09-16T14:00:00+03:30" },
 ];
 
+export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
 export interface StoredDemoRequest extends AppointmentRequestInput {
   id: number;
-  status: "PENDING";
+  status: RequestStatus;
   createdAt: string;
 }
 
@@ -33,4 +35,8 @@ export function addDemoRequest(input: AppointmentRequestInput): StoredDemoReques
 
 export function listDemoRequests(): StoredDemoRequest[] {
   return [...demoRequests];
+}
+
+export function getDemoRequestById(id: number): StoredDemoRequest | undefined {
+  return demoRequests.find((r) => r.id === id);
 }

@@ -140,15 +140,50 @@ ul.busy-list li {
   color: var(--danger);
 }
 
+.badge.status-pending {
+  background: rgba(107, 114, 128, 0.15);
+  color: var(--muted);
+}
+
+.badge.status-approved {
+  background: rgba(47, 111, 79, 0.15);
+  color: var(--accent);
+}
+
+.badge.status-rejected {
+  background: rgba(179, 38, 30, 0.12);
+  color: var(--danger);
+}
+
+.status-card {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.status-card h2 {
+  margin: 10px 0 4px;
+  font-size: 1.1rem;
+}
+
 .cta {
   display: inline-block;
   margin-top: 24px;
+  margin-inline-end: 10px;
   padding: 10px 20px;
   border-radius: 8px;
   background: var(--accent);
   color: #08130c;
   text-decoration: none;
   font-weight: 600;
+}
+
+.cta.cta-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
 }
 
 form label {

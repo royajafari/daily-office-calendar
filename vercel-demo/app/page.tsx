@@ -52,6 +52,9 @@ export default async function HomePage() {
       <Link className="cta" href="/request">
         ثبت درخواست وقت
       </Link>
+      <Link className="cta cta-secondary" href="/status">
+        بررسی وضعیت درخواست
+      </Link>
     </main>
   );
 }

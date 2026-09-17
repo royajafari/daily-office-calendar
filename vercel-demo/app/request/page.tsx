@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import DatePicker, { type DateObject } from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
@@ -50,6 +51,7 @@ export default function RequestPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [serverError, setServerError] = useState<string | null>(null);
+  const [submittedId, setSubmittedId] = useState<number | null>(null);
 
   function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -85,6 +87,8 @@ export default function RequestPage() {
       return;
     }
 
+    const created = (await res.json()) as { id?: number };
+    setSubmittedId(created.id ?? null);
     setStatus("done");
   }
 
@@ -93,6 +97,17 @@ export default function RequestPage() {
       <main>
         <h1>درخواست ثبت شد</h1>
         <p>درخواست شما ثبت شد و در انتظار تأیید رئیس اداره است.</p>
+        {submittedId != null && (
+          <>
+            <p>
+              شناسه‌ی درخواست شما: <strong>{submittedId}</strong> — این شماره را برای بررسی
+              وضعیت بعداً نگه دارید.
+            </p>
+            <Link className="cta" href={`/status?id=${submittedId}`}>
+              بررسی وضعیت درخواست
+            </Link>
+          </>
+        )}
       </main>
     );
   }
