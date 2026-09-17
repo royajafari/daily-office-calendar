@@ -9,6 +9,9 @@ CREATE OR REPLACE PACKAGE daily_office_test AS
     --%test(Rejects an invalid time range with ORA-20001)
     PROCEDURE rejects_invalid_range;
 
+    --%test(Rejects an event/request shorter than 15 minutes with ORA-20007)
+    PROCEDURE rejects_too_short_duration;
+
     --%test(submit_request rejects a starts_at in the past with ORA-20006)
     PROCEDURE rejects_past_start_time;
 

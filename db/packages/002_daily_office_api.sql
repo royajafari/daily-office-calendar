@@ -4,18 +4,23 @@
 
 CREATE OR REPLACE PACKAGE daily_office_api AS
 
-    e_invalid_range     EXCEPTION;
-    e_conflict          EXCEPTION;
-    e_not_found         EXCEPTION;
-    e_already_reviewed  EXCEPTION;
-    e_invalid_decision  EXCEPTION;
-    e_starts_in_past    EXCEPTION;
+    e_invalid_range      EXCEPTION;
+    e_conflict           EXCEPTION;
+    e_not_found          EXCEPTION;
+    e_already_reviewed   EXCEPTION;
+    e_invalid_decision   EXCEPTION;
+    e_starts_in_past     EXCEPTION;
+    e_duration_too_short EXCEPTION;
     PRAGMA EXCEPTION_INIT(e_invalid_range, -20001);
     PRAGMA EXCEPTION_INIT(e_conflict, -20002);
     PRAGMA EXCEPTION_INIT(e_not_found, -20003);
     PRAGMA EXCEPTION_INIT(e_already_reviewed, -20004);
     PRAGMA EXCEPTION_INIT(e_invalid_decision, -20005);
     PRAGMA EXCEPTION_INIT(e_starts_in_past, -20006);
+    PRAGMA EXCEPTION_INIT(e_duration_too_short, -20007);
+
+    -- Shortest allowed event/request duration.
+    c_min_duration_minutes CONSTANT PLS_INTEGER := 15;
 
     TYPE t_busy_row IS RECORD (
         starts_at office_events.starts_at%TYPE,
@@ -88,6 +93,21 @@ END daily_office_api;
 
 CREATE OR REPLACE PACKAGE BODY daily_office_api AS
 
+    PROCEDURE validate_range(
+        p_starts_at IN office_events.starts_at%TYPE,
+        p_ends_at   IN office_events.ends_at%TYPE
+    ) IS
+    BEGIN
+        IF p_ends_at <= p_starts_at THEN
+            raise_application_error(-20001, 'ends_at must be after starts_at.');
+        END IF;
+
+        IF p_ends_at - p_starts_at < NUMTODSINTERVAL(c_min_duration_minutes, 'MINUTE') THEN
+            raise_application_error(-20007, 'Event/request duration must be at least ' ||
+                c_min_duration_minutes || ' minutes.');
+        END IF;
+    END validate_range;
+
     PROCEDURE check_conflict(
         p_starts_at  IN office_events.starts_at%TYPE,
         p_ends_at    IN office_events.ends_at%TYPE,
@@ -95,9 +115,7 @@ CREATE OR REPLACE PACKAGE BODY daily_office_api AS
     ) IS
         l_count NUMBER;
     BEGIN
-        IF p_ends_at <= p_starts_at THEN
-            raise_application_error(-20001, 'ends_at must be after starts_at.');
-        END IF;
+        validate_range(p_starts_at, p_ends_at);
 
         SELECT COUNT(*) INTO l_count
         FROM office_events e
@@ -183,9 +201,7 @@ CREATE OR REPLACE PACKAGE BODY daily_office_api AS
     ) RETURN office_requests.id%TYPE IS
         l_id office_requests.id%TYPE;
     BEGIN
-        IF p_ends_at <= p_starts_at THEN
-            raise_application_error(-20001, 'ends_at must be after starts_at.');
-        END IF;
+        validate_range(p_starts_at, p_ends_at);
 
         IF p_starts_at < SYSTIMESTAMP THEN
             raise_application_error(-20006, 'starts_at must not be in the past.');

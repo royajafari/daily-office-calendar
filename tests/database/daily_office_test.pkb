@@ -42,6 +42,24 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
         ut.expect(l_raised).to_be_true();
     END rejects_invalid_range;
 
+    PROCEDURE rejects_too_short_duration IS
+        l_raised BOOLEAN := FALSE;
+        l_dummy_id office_events.id%TYPE;
+    BEGIN
+        BEGIN
+            l_dummy_id := daily_office_api.create_event(
+                p_event_type => 'MEETING', p_title => 'Too short',
+                p_starts_at  => TIMESTAMP '2026-01-03 09:00:00 +00:00',
+                p_ends_at    => TIMESTAMP '2026-01-03 09:10:00 +00:00',
+                p_created_by => 'head1');
+        EXCEPTION
+            WHEN daily_office_api.e_duration_too_short THEN
+                l_raised := TRUE;
+        END;
+
+        ut.expect(l_raised).to_be_true();
+    END rejects_too_short_duration;
+
     PROCEDURE rejects_past_start_time IS
         l_raised BOOLEAN := FALSE;
         l_dummy_id office_requests.id%TYPE;
