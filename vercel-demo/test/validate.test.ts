@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { validateAppointmentRequest } from "../lib/validate";
 
+// Relative to "now" so this test suite keeps passing as real time moves on.
+const oneWeekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+const startsAt = new Date(oneWeekFromNow.getTime()).toISOString();
+const endsAt = new Date(oneWeekFromNow.getTime() + 60 * 60 * 1000).toISOString();
+
 const VALID_INPUT = {
   requestedBy: "علی رضایی",
   eventType: "MEETING" as const,
   title: "بررسی بودجه",
-  startsAt: "2026-09-20T09:00:00+03:30",
-  endsAt: "2026-09-20T10:00:00+03:30",
+  startsAt,
+  endsAt,
 };
 
 describe("validateAppointmentRequest", () => {
@@ -32,10 +37,19 @@ describe("validateAppointmentRequest", () => {
   it("rejects endsAt before startsAt (mirrors ORA-20001)", () => {
     const errors = validateAppointmentRequest({
       ...VALID_INPUT,
-      startsAt: "2026-09-20T10:00:00+03:30",
-      endsAt: "2026-09-20T09:00:00+03:30",
+      startsAt: endsAt,
+      endsAt: startsAt,
     });
     expect(errors.some((e) => e.field === "endsAt")).toBe(true);
+  });
+
+  it("rejects a startsAt in the past", () => {
+    const errors = validateAppointmentRequest({
+      ...VALID_INPUT,
+      startsAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      endsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    });
+    expect(errors.some((e) => e.field === "startsAt")).toBe(true);
   });
 
   it("rejects an unparsable date", () => {

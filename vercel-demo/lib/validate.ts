@@ -45,6 +45,8 @@ export function validateAppointmentRequest(
       errors.push({ field: "startsAt", message: "قالب تاریخ/زمان نامعتبر است." });
     } else if (ends <= starts) {
       errors.push({ field: "endsAt", message: "زمان پایان باید بعد از زمان شروع باشد." });
+    } else if (starts < new Date()) {
+      errors.push({ field: "startsAt", message: "زمان شروع نمی‌تواند در گذشته باشد." });
     }
   }
 

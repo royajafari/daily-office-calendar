@@ -1,3 +1,54 @@
+/* Kalameh (fontiran.com) — proprietary/licensed, see public/fonts/kalameh/FontLicense.txt */
+@font-face {
+  font-family: KalamehWeb;
+  font-style: normal;
+  font-weight: 300;
+  src: url("/fonts/kalameh/KalamehWeb-Light.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: KalamehWeb;
+  font-style: normal;
+  font-weight: 400;
+  src: url("/fonts/kalameh/KalamehWeb-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: KalamehWeb;
+  font-style: normal;
+  font-weight: 500;
+  src: url("/fonts/kalameh/KalamehWeb-Medium.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: KalamehWeb;
+  font-style: normal;
+  font-weight: 600;
+  src: url("/fonts/kalameh/KalamehWeb-SemiBold.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: KalamehWeb;
+  font-style: normal;
+  font-weight: 700;
+  src: url("/fonts/kalameh/KalamehWeb-Bold.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: KalamehWeb;
+  font-style: normal;
+  font-weight: 800;
+  src: url("/fonts/kalameh/KalamehWeb-ExtraBold.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: KalamehWeb;
+  font-style: normal;
+  font-weight: 900;
+  src: url("/fonts/kalameh/KalamehWeb-Black.woff2") format("woff2");
+  font-display: swap;
+}
+
 :root {
   color-scheme: light dark;
   --bg: #f7f7f5;
@@ -25,11 +76,19 @@
   box-sizing: border-box;
 }
 
+/* Form controls don't inherit the page font by default in most browsers */
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+
 body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-family: KalamehWeb, "Segoe UI", Tahoma, sans-serif;
   line-height: 1.7;
 }
 
@@ -115,6 +174,59 @@ form textarea {
 form textarea {
   min-height: 80px;
   resize: vertical;
+}
+
+/* react-multi-date-picker wraps its <input> in this container */
+form .rmdp-container {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+}
+
+form .rmdp-container input.jalali-input {
+  margin-top: 0;
+  text-align: right;
+}
+
+/* Enlarge the Jalali calendar popup and show full weekday names without wrapping */
+.big-jalali-picker.rmdp-wrapper,
+.rmdp-wrapper:has(.big-jalali-picker) {
+  font-size: 1.05rem;
+}
+
+.big-jalali-picker .rmdp-calendar,
+.rmdp-calendar:has(+ .big-jalali-picker),
+.big-jalali-picker.rmdp-calendar {
+  padding: 10px;
+  min-width: 300px;
+}
+
+.big-jalali-picker .rmdp-day-picker > div,
+.big-jalali-picker.rmdp-day-picker > div {
+  min-width: 280px;
+}
+
+.big-jalali-picker .rmdp-week-day,
+.big-jalali-picker .rmdp-day,
+.big-jalali-picker .rmdp-day span {
+  font-size: 1rem;
+}
+
+.big-jalali-picker .rmdp-week-day {
+  white-space: nowrap;
+  width: auto;
+  padding: 0 4px;
+}
+
+.big-jalali-picker .rmdp-day,
+.big-jalali-picker .rmdp-day span {
+  height: 38px;
+  width: 38px;
+  line-height: 38px;
+}
+
+.big-jalali-picker .rmdp-header-values {
+  font-size: 1.1rem;
 }
 
 .error {

@@ -33,16 +33,16 @@ export default async function HomePage() {
   return (
     <main>
       <h1>دفتر کار روزانه</h1>
-      <p className="subtitle">زمان‌های در دسترس رئیس اداره — فقط بازه‌های مشغول نمایش داده می‌شود، بدون عنوان یا جزئیات.</p>
+      <p className="subtitle">زمان‌های در دسترس رئیس اداره — فقط بازه‌های پر شده نمایش داده می‌شود، بدون عنوان یا جزئیات.</p>
       <span className="data-source">{live ? "داده‌ی زنده از سرور Oracle" : "داده‌ی نمایشی (demo)"}</span>
 
       {blocks.length === 0 ? (
-        <p>در این بازه هیچ زمان مشغولی ثبت نشده است.</p>
+        <p>در این بازه هیچ زمان پر شده‌ای ثبت نشده است.</p>
       ) : (
         <ul className="busy-list">
           {blocks.map((block, i) => (
             <li key={i}>
-              <span className="badge busy">مشغول</span>
+              <span className="badge busy">پر شده</span>
               {formatRange(block.startsAt, block.endsAt)}
             </li>
           ))}

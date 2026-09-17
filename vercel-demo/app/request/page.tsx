@@ -1,6 +1,18 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import DatePicker, { type DateObject } from "react-multi-date-picker";
+import persian from "react-date-object/calendars/persian";
+import persian_fa from "react-date-object/locales/persian_fa";
+import TimePicker from "react-multi-date-picker/plugins/time_picker";
+
+// persian_fa ships [fullName, shortName] pairs for weekdays and defaults to
+// the short form ("شن", "یک", ...); use the full name in both slots so the
+// calendar always shows "شنبه", "یکشنبه", etc.
+const persianFaFullWeekdays = {
+  ...persian_fa,
+  weekDays: persian_fa.weekDays.map(([full]: string[]) => [full, full]),
+};
 
 const EVENT_TYPES: Array<{ value: string; label: string }> = [
   { value: "MEETING", label: "جلسه" },
@@ -26,6 +38,12 @@ const INITIAL_STATE: FormState = {
   startsAt: "",
   endsAt: "",
 };
+
+function toIsoString(value: DateObject | DateObject[] | null): string {
+  if (!value || Array.isArray(value)) return "";
+  const jsDate = value.toDate();
+  return Number.isNaN(jsDate.getTime()) ? "" : jsDate.toISOString();
+}
 
 export default function RequestPage() {
   const [form, setForm] = useState<FormState>(INITIAL_STATE);
@@ -117,20 +135,36 @@ export default function RequestPage() {
 
       <label>
         زمان شروع
-        <input
-          type="datetime-local"
-          value={form.startsAt}
-          onChange={(e) => updateField("startsAt", e.target.value)}
+        <DatePicker
+          calendar={persian}
+          locale={persianFaFullWeekdays}
+          calendarPosition="bottom-right"
+          format="YYYY/MM/DD HH:mm"
+          plugins={[<TimePicker key="time" hideSeconds />]}
+          value={form.startsAt ? new Date(form.startsAt) : null}
+          onChange={(value) => updateField("startsAt", toIsoString(value))}
+          inputClass="jalali-input"
+          className="big-jalali-picker"
+          placeholder="روز/ماه/سال ساعت:دقیقه"
+          minDate={new Date()}
         />
       </label>
       {errors.startsAt && <p className="error">{errors.startsAt}</p>}
 
       <label>
         زمان پایان
-        <input
-          type="datetime-local"
-          value={form.endsAt}
-          onChange={(e) => updateField("endsAt", e.target.value)}
+        <DatePicker
+          calendar={persian}
+          locale={persianFaFullWeekdays}
+          calendarPosition="bottom-right"
+          format="YYYY/MM/DD HH:mm"
+          plugins={[<TimePicker key="time" hideSeconds />]}
+          value={form.endsAt ? new Date(form.endsAt) : null}
+          onChange={(value) => updateField("endsAt", toIsoString(value))}
+          inputClass="jalali-input"
+          className="big-jalali-picker"
+          placeholder="روز/ماه/سال ساعت:دقیقه"
+          minDate={form.startsAt ? new Date(form.startsAt) : new Date()}
         />
       </label>
       {errors.endsAt && <p className="error">{errors.endsAt}</p>}
