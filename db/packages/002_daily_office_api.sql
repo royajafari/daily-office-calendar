@@ -4,16 +4,18 @@
 
 CREATE OR REPLACE PACKAGE daily_office_api AS
 
-    e_invalid_range   EXCEPTION;
-    e_conflict        EXCEPTION;
-    e_not_found       EXCEPTION;
-    e_already_reviewed EXCEPTION;
-    e_invalid_decision EXCEPTION;
+    e_invalid_range     EXCEPTION;
+    e_conflict          EXCEPTION;
+    e_not_found         EXCEPTION;
+    e_already_reviewed  EXCEPTION;
+    e_invalid_decision  EXCEPTION;
+    e_starts_in_past    EXCEPTION;
     PRAGMA EXCEPTION_INIT(e_invalid_range, -20001);
     PRAGMA EXCEPTION_INIT(e_conflict, -20002);
     PRAGMA EXCEPTION_INIT(e_not_found, -20003);
     PRAGMA EXCEPTION_INIT(e_already_reviewed, -20004);
     PRAGMA EXCEPTION_INIT(e_invalid_decision, -20005);
+    PRAGMA EXCEPTION_INIT(e_starts_in_past, -20006);
 
     TYPE t_busy_row IS RECORD (
         starts_at office_events.starts_at%TYPE,
@@ -183,6 +185,10 @@ CREATE OR REPLACE PACKAGE BODY daily_office_api AS
     BEGIN
         IF p_ends_at <= p_starts_at THEN
             raise_application_error(-20001, 'ends_at must be after starts_at.');
+        END IF;
+
+        IF p_starts_at < SYSTIMESTAMP THEN
+            raise_application_error(-20006, 'starts_at must not be in the past.');
         END IF;
 
         INSERT INTO office_requests (requested_by, event_type, title, note, starts_at, ends_at)

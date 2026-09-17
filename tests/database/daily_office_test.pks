@@ -9,6 +9,9 @@ CREATE OR REPLACE PACKAGE daily_office_test AS
     --%test(Rejects an invalid time range with ORA-20001)
     PROCEDURE rejects_invalid_range;
 
+    --%test(submit_request rejects a starts_at in the past with ORA-20006)
+    PROCEDURE rejects_past_start_time;
+
     --%test(submit_request creates a PENDING request without an event)
     PROCEDURE creates_pending_request;
 

@@ -42,6 +42,23 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
         ut.expect(l_raised).to_be_true();
     END rejects_invalid_range;
 
+    PROCEDURE rejects_past_start_time IS
+        l_raised BOOLEAN := FALSE;
+        l_dummy_id office_requests.id%TYPE;
+    BEGIN
+        BEGIN
+            l_dummy_id := daily_office_api.submit_request(
+                p_requested_by => 'staff1', p_event_type => 'MEETING', p_title => 'Time travel meeting',
+                p_starts_at => SYSTIMESTAMP - INTERVAL '2' DAY,
+                p_ends_at   => SYSTIMESTAMP - INTERVAL '1' DAY);
+        EXCEPTION
+            WHEN daily_office_api.e_starts_in_past THEN
+                l_raised := TRUE;
+        END;
+
+        ut.expect(l_raised).to_be_true();
+    END rejects_past_start_time;
+
     PROCEDURE creates_pending_request IS
         l_req_id office_requests.id%TYPE;
         l_status office_requests.status%TYPE;
@@ -49,8 +66,8 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
     BEGIN
         l_req_id := daily_office_api.submit_request(
             p_requested_by => 'staff1', p_event_type => 'MEETING', p_title => 'Team sync',
-            p_starts_at => TIMESTAMP '2026-02-02 09:00:00 +00:00',
-            p_ends_at   => TIMESTAMP '2026-02-02 10:00:00 +00:00');
+            p_starts_at => SYSTIMESTAMP + INTERVAL '10' DAY,
+            p_ends_at   => SYSTIMESTAMP + INTERVAL '10' DAY + INTERVAL '1' HOUR);
 
         SELECT status, resulting_event_id INTO l_status, l_result_event_id
         FROM office_requests WHERE id = l_req_id;
@@ -67,8 +84,8 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
     BEGIN
         l_req_id := daily_office_api.submit_request(
             p_requested_by => 'staff1', p_event_type => 'MEETING', p_title => 'Budget review',
-            p_starts_at => TIMESTAMP '2026-02-03 09:00:00 +00:00',
-            p_ends_at   => TIMESTAMP '2026-02-03 10:00:00 +00:00');
+            p_starts_at => SYSTIMESTAMP + INTERVAL '11' DAY,
+            p_ends_at   => SYSTIMESTAMP + INTERVAL '11' DAY + INTERVAL '1' HOUR);
 
         daily_office_api.review_request(p_request_id => l_req_id, p_decision => 'APPROVED', p_reviewed_by => 'head1');
 
@@ -89,8 +106,8 @@ CREATE OR REPLACE PACKAGE BODY daily_office_test AS
     BEGIN
         l_req_id := daily_office_api.submit_request(
             p_requested_by => 'staff1', p_event_type => 'MEETING', p_title => 'Unwanted meeting',
-            p_starts_at => TIMESTAMP '2026-02-04 09:00:00 +00:00',
-            p_ends_at   => TIMESTAMP '2026-02-04 10:00:00 +00:00');
+            p_starts_at => SYSTIMESTAMP + INTERVAL '12' DAY,
+            p_ends_at   => SYSTIMESTAMP + INTERVAL '12' DAY + INTERVAL '1' HOUR);
 
         daily_office_api.review_request(p_request_id => l_req_id, p_decision => 'REJECTED', p_reviewed_by => 'head1');
 

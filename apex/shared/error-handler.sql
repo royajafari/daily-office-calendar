@@ -1,5 +1,5 @@
 -- Page Error Handling Function for the Daily Office Calendar app.
--- Maps daily_office_api's raise_application_error codes (ORA-20001..20005) to
+-- Maps daily_office_api's raise_application_error codes (ORA-20001..20006) to
 -- Persian, user-facing messages instead of a raw ORA- exception (DO-AC-05).
 --
 -- IMPORTANT: this depends on APEX_ERROR / APEX_ZZZ package types that only
@@ -29,6 +29,9 @@ BEGIN
             l_result.display_location := apex_error.c_inline_in_notification;
         WHEN -20005 THEN
             l_result.message := 'مقدار ارسالی نامعتبر است.';
+            l_result.display_location := apex_error.c_inline_in_notification;
+        WHEN -20006 THEN
+            l_result.message := 'زمان شروع نمی‌تواند در گذشته باشد.';
             l_result.display_location := apex_error.c_inline_in_notification;
         ELSE
             NULL; -- keep APEX's default handling for anything unexpected
