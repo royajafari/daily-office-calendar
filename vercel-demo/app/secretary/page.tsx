@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 interface RequestRow {
   id: number;
@@ -13,6 +14,7 @@ interface RequestRow {
   status: "PENDING" | "APPROVED" | "REJECTED";
   reviewedBy?: string;
   reviewedAt?: string;
+  reviewNote?: string;
 }
 
 const EVENT_TYPE_LABEL: Record<string, string> = {
@@ -38,6 +40,8 @@ export default function SecretaryPage() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
 
   async function load() {
     setLoading(true);
@@ -51,27 +55,48 @@ export default function SecretaryPage() {
     void load();
   }, []);
 
-  async function review(id: number, decision: "APPROVED" | "REJECTED") {
+  async function review(id: number, decision: "APPROVED" | "REJECTED", reviewNote?: string) {
     setBusyId(id);
     setNotice(null);
 
     const res = await fetch(`/api/requests/${id}/review`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ decision, reviewedBy: "منشی (پیش‌نمایش)" }),
+      body: JSON.stringify({ decision, reviewedBy: "منشی (پیش‌نمایش)", reviewNote }),
     });
     const body = await res.json().catch(() => ({}) as Record<string, unknown>);
 
     if (!res.ok) {
       setNotice((body.error as string) ?? "بررسی درخواست ناموفق بود.");
+      setBusyId(null);
+      return;
     }
 
     setBusyId(null);
+    setRejectingId(null);
+    setRejectNote("");
     await load();
+  }
+
+  function startReject(id: number) {
+    setNotice(null);
+    setRejectingId(id);
+    setRejectNote("");
+  }
+
+  function confirmReject(id: number) {
+    if (!rejectNote.trim()) {
+      setNotice("برای رد درخواست، نوشتن دلیل الزامی است.");
+      return;
+    }
+    void review(id, "REJECTED", rejectNote);
   }
 
   return (
     <main className="wide">
+      <Link className="back-link" href="/">
+        ← بازگشت به صفحه اول
+      </Link>
       <h1>بررسی درخواست‌ها (منشی)</h1>
       <p className="subtitle">
         این پیش‌نمایش موقت است — بدون احراز هویت واقعی، فقط برای نمایش جریان کار. نسخه‌ی
@@ -115,26 +140,57 @@ export default function SecretaryPage() {
                   </td>
                   <td>
                     {row.status === "PENDING" ? (
-                      <div className="row-actions">
-                        <button
-                          type="button"
-                          disabled={busyId === row.id}
-                          onClick={() => review(row.id, "APPROVED")}
-                        >
-                          تأیید
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary"
-                          disabled={busyId === row.id}
-                          onClick={() => review(row.id, "REJECTED")}
-                        >
-                          رد
-                        </button>
-                      </div>
+                      rejectingId === row.id ? (
+                        <div className="reject-composer">
+                          <textarea
+                            value={rejectNote}
+                            onChange={(e) => setRejectNote(e.target.value)}
+                            placeholder="دلیل رد (برای درخواست‌کننده نمایش داده می‌شود)"
+                            rows={2}
+                          />
+                          <div className="row-actions">
+                            <button
+                              type="button"
+                              className="secondary"
+                              disabled={busyId === row.id}
+                              onClick={() => confirmReject(row.id)}
+                            >
+                              تأیید رد
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRejectingId(null);
+                                setRejectNote("");
+                              }}
+                            >
+                              انصراف
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="row-actions">
+                          <button
+                            type="button"
+                            disabled={busyId === row.id}
+                            onClick={() => review(row.id, "APPROVED")}
+                          >
+                            تأیید
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary"
+                            disabled={busyId === row.id}
+                            onClick={() => startReject(row.id)}
+                          >
+                            رد
+                          </button>
+                        </div>
+                      )
                     ) : (
                       <span className="subtitle">
                         {row.reviewedAt ? formatDateTime(row.reviewedAt) : "—"}
+                        {row.reviewNote && <div className="review-note-inline">{row.reviewNote}</div>}
                       </span>
                     )}
                   </td>

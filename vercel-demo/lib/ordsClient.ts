@@ -58,6 +58,7 @@ export interface RequestStatusRow {
   startsAt: string;
   endsAt: string;
   reviewedAt: string | null;
+  reviewNote: string | null;
 }
 
 export async function fetchRequestStatusFromOrds(
@@ -80,6 +81,7 @@ export async function fetchRequestStatusFromOrds(
       starts_at: string;
       ends_at: string;
       reviewed_at: string | null;
+      review_note: string | null;
     }>;
   };
   const row = body.items?.[0];
@@ -93,5 +95,6 @@ export async function fetchRequestStatusFromOrds(
     startsAt: row.starts_at,
     endsAt: row.ends_at,
     reviewedAt: row.reviewed_at,
+    reviewNote: row.review_note,
   };
 }

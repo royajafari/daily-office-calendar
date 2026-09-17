@@ -15,6 +15,7 @@ export interface StoredDemoRequest extends AppointmentRequestInput {
   createdAt: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  reviewNote?: string;
 }
 
 // In-memory only — resets on every cold start / redeploy. This demo has no
@@ -59,7 +60,8 @@ function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): b
 export function reviewDemoRequest(
   id: number,
   decision: "APPROVED" | "REJECTED",
-  reviewedBy: string
+  reviewedBy: string,
+  reviewNote?: string
 ): StoredDemoRequest {
   const record = getDemoRequestById(id);
   if (!record) {
@@ -86,5 +88,6 @@ export function reviewDemoRequest(
   record.status = decision;
   record.reviewedBy = reviewedBy;
   record.reviewedAt = new Date().toISOString();
+  record.reviewNote = reviewNote?.trim() || undefined;
   return record;
 }

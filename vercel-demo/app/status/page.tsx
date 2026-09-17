@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 interface RequestStatusResult {
   id: number;
@@ -11,6 +12,7 @@ interface RequestStatusResult {
   startsAt: string;
   endsAt: string;
   reviewedAt: string | null;
+  reviewNote: string | null;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -30,12 +32,33 @@ function formatDateTime(value: string): string {
   return fmt.format(new Date(value));
 }
 
+const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+
+// Accepts Persian/Arabic-Indic digits too (common on Persian keyboards),
+// normalizes them to ASCII, and strips everything else non-numeric.
+function toDigitsOnly(value: string): string {
+  const normalized = value.replace(/[۰-۹٠-٩]/g, (ch) => {
+    const persianIndex = PERSIAN_DIGITS.indexOf(ch);
+    if (persianIndex !== -1) return String(persianIndex);
+    return String(ARABIC_DIGITS.indexOf(ch));
+  });
+  return normalized.replace(/[^0-9]/g, "");
+}
+
 function StatusForm() {
   const searchParams = useSearchParams();
   const [requestId, setRequestId] = useState(searchParams.get("id") ?? "");
   const [state, setState] = useState<"idle" | "loading" | "found" | "error">("idle");
   const [result, setResult] = useState<RequestStatusResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [idHint, setIdHint] = useState<string | null>(null);
+
+  function handleIdChange(raw: string) {
+    const digitsOnly = toDigitsOnly(raw);
+    setIdHint(digitsOnly.length < raw.length ? "شناسه‌ی درخواست فقط باید عدد باشد." : null);
+    setRequestId(digitsOnly);
+  }
 
   const checkStatus = useCallback(async (id: string) => {
     setState("loading");
@@ -71,6 +94,9 @@ function StatusForm() {
 
   return (
     <main>
+      <Link className="back-link" href="/">
+        ← بازگشت به صفحه اول
+      </Link>
       <h1>بررسی وضعیت درخواست</h1>
       <p className="subtitle">
         شناسه‌ای که بعد از ثبت درخواست به شما نمایش داده شد را وارد کنید.
@@ -81,11 +107,13 @@ function StatusForm() {
           شناسه‌ی درخواست
           <input
             inputMode="numeric"
+            pattern="[0-9]*"
             value={requestId}
-            onChange={(e) => setRequestId(e.target.value)}
+            onChange={(e) => handleIdChange(e.target.value)}
             placeholder="مثلاً 12"
           />
         </label>
+        {idHint && <p className="error">{idHint}</p>}
 
         <button type="submit" disabled={state === "loading" || !requestId}>
           بررسی وضعیت
@@ -105,6 +133,11 @@ function StatusForm() {
           </p>
           {result.reviewedAt && (
             <p className="subtitle">زمان بررسی: {formatDateTime(result.reviewedAt)}</p>
+          )}
+          {result.reviewNote && (
+            <div className="review-note">
+              <strong>یادداشت منشی:</strong> {result.reviewNote}
+            </div>
           )}
         </div>
       )}

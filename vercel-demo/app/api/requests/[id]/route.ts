@@ -43,5 +43,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     startsAt: demoRequest.startsAt,
     endsAt: demoRequest.endsAt,
     reviewedAt: demoRequest.reviewedAt ?? null,
+    reviewNote: demoRequest.reviewNote ?? null,
   });
 }

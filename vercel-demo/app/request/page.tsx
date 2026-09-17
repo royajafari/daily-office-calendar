@@ -95,6 +95,9 @@ export default function RequestPage() {
   if (status === "done") {
     return (
       <main>
+        <Link className="back-link" href="/">
+          ← بازگشت به صفحه اول
+        </Link>
         <h1>درخواست ثبت شد</h1>
         <p>درخواست شما ثبت شد و در انتظار تأیید رئیس اداره است.</p>
         {submittedId != null && (
@@ -114,6 +117,9 @@ export default function RequestPage() {
 
   return (
     <form onSubmit={handleSubmit}>
+      <Link className="back-link" href="/">
+        ← بازگشت به صفحه اول
+      </Link>
       <h1>ثبت درخواست وقت</h1>
 
       <label>

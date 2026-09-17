@@ -30,14 +30,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const body = (await request.json().catch(() => null)) as {
     decision?: "APPROVED" | "REJECTED";
     reviewedBy?: string;
+    reviewNote?: string;
   } | null;
 
   if (!body?.decision || !["APPROVED", "REJECTED"].includes(body.decision)) {
     return NextResponse.json({ error: "decision باید APPROVED یا REJECTED باشد." }, { status: 400 });
   }
 
+  if (body.decision === "REJECTED" && !body.reviewNote?.trim()) {
+    return NextResponse.json(
+      { error: "برای رد درخواست، نوشتن دلیل الزامی است." },
+      { status: 400 }
+    );
+  }
+
   try {
-    const record = reviewDemoRequest(requestId, body.decision, body.reviewedBy || "منشی (پیش‌نمایش)");
+    const record = reviewDemoRequest(
+      requestId,
+      body.decision,
+      body.reviewedBy || "منشی (پیش‌نمایش)",
+      body.reviewNote
+    );
     return NextResponse.json(record);
   } catch (err) {
     if (err instanceof DemoReviewError) {
