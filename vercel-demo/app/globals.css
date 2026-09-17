@@ -269,6 +269,12 @@ ul.busy-list li {
   font-size: 0.88rem;
 }
 
+.poll-hint {
+  margin-top: 10px;
+  margin-bottom: 0;
+  font-size: 0.78rem;
+}
+
 .cta {
   display: inline-block;
   margin-top: 24px;

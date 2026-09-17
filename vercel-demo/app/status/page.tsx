@@ -87,6 +87,23 @@ function StatusForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // While a request is still PENDING, poll quietly in the background so the
+  // status updates on its own once reviewed — no button press needed. Stops
+  // as soon as the status is no longer PENDING (it can't change again).
+  const pollingId = result?.status === "PENDING" ? result.id : null;
+  useEffect(() => {
+    if (pollingId == null) return;
+
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/requests/${pollingId}`, { cache: "no-store" });
+      if (!res.ok) return;
+      const body = (await res.json()) as RequestStatusResult;
+      setResult(body);
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [pollingId]);
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     void checkStatus(requestId);
@@ -138,6 +155,9 @@ function StatusForm() {
             <div className="review-note">
               <strong>یادداشت منشی:</strong> {result.reviewNote}
             </div>
+          )}
+          {pollingId != null && (
+            <p className="subtitle poll-hint">به‌محض تغییر وضعیت، این صفحه خودش به‌روزرسانی می‌شود.</p>
           )}
         </div>
       )}
