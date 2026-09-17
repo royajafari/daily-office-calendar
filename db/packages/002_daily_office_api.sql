@@ -59,11 +59,14 @@ CREATE OR REPLACE PACKAGE daily_office_api AS
     ) RETURN office_requests.id%TYPE;
 
     -- p_decision: 'APPROVED' or 'REJECTED'. APPROVED creates exactly one linked
-    -- office_events row and enqueues it for Google Calendar sync.
+    -- office_events row and enqueues it for Google Calendar sync. p_review_note
+    -- (e.g. a rejection reason) is visible to the requester via the public
+    -- GET /requests/:id status lookup.
     PROCEDURE review_request(
         p_request_id  IN office_requests.id%TYPE,
         p_decision    IN VARCHAR2,
-        p_reviewed_by IN office_requests.reviewed_by%TYPE
+        p_reviewed_by IN office_requests.reviewed_by%TYPE,
+        p_review_note IN office_requests.review_note%TYPE DEFAULT NULL
     );
 
     -- Busy intervals only (no title/description) — safe to expose to STAFF.
@@ -224,7 +227,8 @@ CREATE OR REPLACE PACKAGE BODY daily_office_api AS
     PROCEDURE review_request(
         p_request_id  IN office_requests.id%TYPE,
         p_decision    IN VARCHAR2,
-        p_reviewed_by IN office_requests.reviewed_by%TYPE
+        p_reviewed_by IN office_requests.reviewed_by%TYPE,
+        p_review_note IN office_requests.review_note%TYPE DEFAULT NULL
     ) IS
         l_req      office_requests%ROWTYPE;
         l_event_id office_events.id%TYPE;
@@ -258,13 +262,15 @@ CREATE OR REPLACE PACKAGE BODY daily_office_api AS
                SET status = 'APPROVED',
                    reviewed_by = p_reviewed_by,
                    reviewed_at = SYSTIMESTAMP,
-                   resulting_event_id = l_event_id
+                   resulting_event_id = l_event_id,
+                   review_note = p_review_note
              WHERE id = p_request_id;
         ELSE
             UPDATE office_requests
                SET status = 'REJECTED',
                    reviewed_by = p_reviewed_by,
-                   reviewed_at = SYSTIMESTAMP
+                   reviewed_at = SYSTIMESTAMP,
+                   review_note = p_review_note
              WHERE id = p_request_id;
         END IF;
     END review_request;

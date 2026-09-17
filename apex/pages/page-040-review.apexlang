@@ -20,28 +20,39 @@ page:
     - name: "Review History"
       type: Interactive Report (collapsed by default)
       source: |
-        SELECT id, requested_by, event_type, title, status, reviewed_by, reviewed_at, resulting_event_id
+        SELECT id, requested_by, event_type, title, status, reviewed_by, reviewed_at,
+               resulting_event_id, review_note
         FROM office_requests
         WHERE status != 'PENDING'
         ORDER BY reviewed_at DESC
 
+    - name: "Review Note Modal"
+      type: Static Content (modal, opened by both row actions below)
+      items:
+        - { name: P40_REVIEW_NOTE, type: Textarea, label: "یادداشت (در صورت رد، دلیل را برای درخواست‌کننده بنویسید)" }
+      note: >
+        یادداشت اختیاری است برای تأیید، ولی برای رد توصیه می‌شود چون از طریق
+        GET /requests/:id به درخواست‌کننده در دموی Vercel نمایش داده می‌شود.
+
   processes:
     - name: "Approve Request"
-      point: On Click (row action "Approve")
+      point: On Click (row action "Approve", after Review Note Modal confirm)
       type: PL/SQL
       code: |
         daily_office_api.review_request(
           p_request_id  => :P40_REQUEST_ID,
           p_decision    => 'APPROVED',
-          p_reviewed_by => :APP_USER);
+          p_reviewed_by => :APP_USER,
+          p_review_note => :P40_REVIEW_NOTE);
       success_message: "درخواست تأیید شد و یک رویداد در تقویم ایجاد و در صف همگام‌سازی قرار گرفت."
 
     - name: "Reject Request"
-      point: On Click (row action "Reject")
+      point: On Click (row action "Reject", after Review Note Modal confirm)
       type: PL/SQL
       code: |
         daily_office_api.review_request(
           p_request_id  => :P40_REQUEST_ID,
           p_decision    => 'REJECTED',
-          p_reviewed_by => :APP_USER);
+          p_reviewed_by => :APP_USER,
+          p_review_note => :P40_REVIEW_NOTE);
       success_message: "درخواست رد شد."

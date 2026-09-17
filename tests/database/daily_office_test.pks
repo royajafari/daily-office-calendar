@@ -27,7 +27,7 @@ CREATE OR REPLACE PACKAGE daily_office_test AS
     --%test(Approving a request creates exactly one linked event)
     PROCEDURE approval_creates_event;
 
-    --%test(Rejecting a request creates no event)
+    --%test(Rejecting a request creates no event and stores the review_note)
     PROCEDURE rejection_creates_no_event;
 
     --%test(get_availability returns busy intervals only, no title/description)

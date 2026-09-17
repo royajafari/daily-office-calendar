@@ -105,7 +105,7 @@ BEGIN
         p_method      => 'GET',
         p_source_type => ords.source_type_query,
         p_source      => q'[
-            SELECT id, event_type, title, status, starts_at, ends_at, reviewed_at
+            SELECT id, event_type, title, status, starts_at, ends_at, reviewed_at, review_note
             FROM   office_requests
             WHERE  id = :request_id
         ]'
