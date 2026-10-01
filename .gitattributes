@@ -1,0 +1,2 @@
+# Shell scripts run inside Linux containers (docker/db/setup); CRLF breaks bash.
+*.sh text eol=lf
