@@ -7,7 +7,7 @@
 --   2. The widget finds a nonce so sha256(salt || ':' || nonce) starts with
 --      `bits` zero bits (proof-of-work).
 --   3. verify_solution  → checks expiry, minimum solve time and the proof-of-work,
---      then issues a pass token (2 minutes).
+--      then issues a pass token (10 minutes).
 --   4. consume_pass     → the login page's validation accepts each pass exactly once.
 --
 -- Requires: GRANT EXECUTE ON SYS.DBMS_CRYPTO TO <schema> (docker/db/setup/20-captcha-grants.sh).
@@ -20,7 +20,10 @@ CREATE OR REPLACE PACKAGE captcha_api AS
 
     c_bits             CONSTANT PLS_INTEGER := 17;     -- proof-of-work difficulty (each +1 doubles the work)
     c_challenge_ttl_ms CONSTANT PLS_INTEGER := 120000;
-    c_pass_ttl_ms      CONSTANT PLS_INTEGER := 120000;
+    -- Time between ticking and pressing Login. Generous because this is an
+    -- intranet-only app: stockpiling passes needs a foothold inside the network,
+    -- and each pass is still single-use and rate-limited per IP.
+    c_pass_ttl_ms      CONSTANT PLS_INTEGER := 600000;
     c_min_solve_ms     CONSTANT PLS_INTEGER := 400;    -- faster than this is not a person
 
     -- The challenge endpoint is public and every call stores a row, so it is capped:
