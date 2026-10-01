@@ -8,7 +8,7 @@ cp docker/.env.example docker/.env
 
 سپس مقادیر را با یک رمز **قوی و ساخته‌شده توسط خودتان** پر کنید — این رمزها را من یا هیچ سرویس دیگری برایتان نمی‌سازد و در Git هم قرار نمی‌گیرد (`docker/.env` در `.gitignore` ریشه است).
 
-**قوانین رمز Oracle (`ORACLE_PASSWORD`, `APP_USER_PASSWORD`, `ORDS_SYS_PASSWORD`):** حداقل ۸ کاراکتر، شامل حداقل یک حرف بزرگ، یک حرف کوچک و یک رقم؛ از نویسه‌های `'`، `"` و `@` در رمز SYS خودداری کنید.
+**قوانین رمز Oracle (`ORACLE_PASSWORD`, `APP_USER_PASSWORD`, `ORDS_SYS_PASSWORD`, `ORDS_PUBLIC_USER_PASSWORD`):** حداقل ۸ کاراکتر، شامل حداقل یک حرف بزرگ، یک حرف کوچک و یک رقم؛ از نویسه‌های `'`، `"` و `@` در رمز SYS خودداری کنید.
 
 **قوانین رمز APEX Admin (`APEX_ADMIN_PASSWORD`, `APEX_REST_PASSWORD`):** حداقل ۸ کاراکتر، حداقل یک حرف بزرگ، یک حرف کوچک، یک رقم؛ نباید شامل نام کاربری (`ADMIN`) باشد.
 
@@ -56,13 +56,26 @@ docker login container-registry.oracle.com
 docker compose --profile ords up -d
 ```
 
-سپس، برای فعال‌سازی endpointهای REST پروژه (بعد از این‌که ORDS بالا آمد و schema را REST-enable کرد):
+کانتینر ORDS خودش schema‌ی اپلیکیشن را REST-enable نمی‌کند. یک بار، بعد از بالا آمدن ORDS، این دستور را اجرا کنید (با کاربر `APP_USER`). نتیجه‌اش آدرس‌هایی به شکل `/ords/daily_office/...` است:
+
+```sql
+BEGIN
+  ords.enable_schema(p_enabled => TRUE, p_url_mapping_type => 'BASE_PATH',
+                     p_url_mapping_pattern => 'daily_office', p_auto_rest_auth => TRUE);
+  COMMIT;
+END;
+/
+```
+
+سپس endpointهای REST پروژه را نصب کنید (کپچای صفحه‌ی لاگین هم همین‌جا نصب می‌شود):
 
 ```bash
 docker compose --profile migrate run --rm liquibase \
   --changelog-file=db/changelog/2026-09-10-02-ords-rest.yaml update
 docker compose --profile migrate run --rm liquibase \
   --changelog-file=db/changelog/2026-09-10-03-apex-error-handler.yaml update
+docker compose --profile migrate run --rm liquibase \
+  --changelog-file=db/changelog/2026-09-30-02-captcha-ords.yaml update
 ```
 
 ## ۷. اجرای تست‌ها
