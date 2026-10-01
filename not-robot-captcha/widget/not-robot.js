@@ -149,16 +149,22 @@
   };
 
   var STYLE =
-    ":host{display:block;font-family:inherit;color-scheme:light dark}" +
-    ".box{--bg:#f9f9f9;--fg:#222;--line:#d3d3d3;--muted:#777;--ok:#0f9d58;--bad:#d93025;--tick:#4a90e2;" +
-    "display:flex;align-items:center;gap:12px;width:300px;max-width:100%;min-height:74px;padding:0 12px;" +
+    // Variables live on :host so both .box and .msg (its sibling) see them.
+    ":host{display:block;font-family:inherit;color-scheme:light dark;" +
+    "--bg:#f9f9f9;--fg:#222;--line:#d3d3d3;--muted:#777;--ok:#0f9d58;--bad:#d93025;--tick:#4a90e2;" +
+    "--ok-bg:#e6f4ea;--ok-line:#34a853;--warn:#b45309;--warn-bg:#fff4e5;--warn-line:#f59e0b}" +
+    "@media (prefers-color-scheme:dark){:host{--bg:#222428;--fg:#eceef2;--line:#3a3d44;--muted:#9aa0ab;" +
+    "--bad:#ff8a80;--ok-bg:#16301f;--ok-line:#3ddc84;--warn:#fbbf24;--warn-bg:#33270f;--warn-line:#f59e0b}}" +
+    ".box{display:flex;align-items:center;gap:12px;width:300px;max-width:100%;min-height:74px;padding:0 12px;" +
     "box-sizing:border-box;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;" +
-    "box-shadow:0 1px 3px rgba(0,0,0,.08)}" +
-    "@media (prefers-color-scheme:dark){.box{--bg:#222428;--fg:#eceef2;--line:#3a3d44;--muted:#9aa0ab}}" +
+    "box-shadow:0 1px 3px rgba(0,0,0,.08);transition:background-color .25s,border-color .25s}" +
+    // Ticked and accepted: green. Expired or failed: orange, and clickable again.
+    ".state-verified .box{background:var(--ok-bg);border-color:var(--ok-line)}" +
+    ".state-warn .box{background:var(--warn-bg);border-color:var(--warn-line)}" +
     ".check{flex:none;width:28px;height:28px;border:2px solid #c1c1c1;border-radius:3px;background:#fff;cursor:pointer;" +
     "display:grid;place-items:center;padding:0;transition:border-color .15s}" +
     ".check:hover{border-color:#b2b2b2}.check:focus-visible{outline:2px solid var(--tick);outline-offset:2px}" +
-    ".check[disabled]{cursor:default}" +
+    ".check[disabled]{cursor:default}.state-warn .check{border-color:var(--warn-line)}" +
     ".spin{width:24px;height:24px;border:3px solid var(--tick);border-top-color:transparent;border-radius:50%;" +
     "animation:r .8s linear infinite}@keyframes r{to{transform:rotate(360deg)}}" +
     ".state-verifying .check,.state-verified .check{border-color:transparent;background:transparent}" +
@@ -167,8 +173,9 @@
     ".label{flex:1;user-select:none;cursor:pointer}" +
     ".brand{flex:none;font-size:10px;color:var(--muted);text-align:center;line-height:1.3}" +
     ".brand svg{display:block;margin:0 auto 2px;width:26px;height:26px;fill:none;stroke:var(--tick);stroke-width:2}" +
-    ".msg{margin:4px 2px 0;font-size:12px;color:var(--bad);max-width:300px}" +
-    "@media (prefers-reduced-motion:reduce){.spin,.tick{animation-duration:0s}.tick{stroke-dashoffset:0}}";
+    ".msg{margin:4px 2px 0;font-size:12px;color:var(--bad);max-width:300px}.state-warn .msg{color:var(--warn)}" +
+    "@media (prefers-reduced-motion:reduce){.spin,.tick{animation-duration:0s}.tick{stroke-dashoffset:0}" +
+    ".box{transition:none}}";
 
   var SHIELD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>';
   var TICK = '<svg class="tick" viewBox="0 0 28 28" aria-hidden="true"><path d="M5 15l6 6 12-13"/></svg>';
@@ -195,13 +202,15 @@
       var fa = t === TEXT.fa;
       this.shadowRoot.innerHTML =
         "<style>" + STYLE + "</style>" +
-        '<div class="box state-idle" dir="' + (fa ? "rtl" : "ltr") + '">' +
+        '<div class="wrap state-idle" dir="' + (fa ? "rtl" : "ltr") + '">' +
+        '<div class="box">' +
         '<button type="button" class="check" role="checkbox" aria-checked="false" aria-labelledby="l"></button>' +
         '<span class="label" id="l">' + t.label + "</span>" +
         '<span class="brand">' + SHIELD + t.brand + "</span>" +
         "</div>" +
-        '<div class="msg" role="alert" hidden></div>';
-      this._root = this.shadowRoot.querySelector(".box");
+        '<div class="msg" role="alert" hidden></div>' +
+        "</div>";
+      this._root = this.shadowRoot.querySelector(".wrap");
       this._check = this.shadowRoot.querySelector(".check");
       this._msg = this.shadowRoot.querySelector(".msg");
 
@@ -262,6 +271,7 @@
 
     _expire() {
       this.reset();
+      this._setState("warn");
       this._showMsg(this._t().expired);
       this.dispatchEvent(new CustomEvent("captcha-expired", { bubbles: true }));
     }
@@ -272,12 +282,13 @@
 
     _server() { return (this.getAttribute("server") || scriptOrigin).replace(/\/+$/, ""); }
 
+    /** idle | verifying | verified (green) | warn (orange: expired or failed, can tick again) */
     _setState(state) {
-      this._root.className = "box state-" + state;
+      this._root.className = "wrap state-" + state;
       var check = this._check;
       check.setAttribute("aria-checked", state === "verified" ? "true" : "false");
       check.setAttribute("aria-busy", state === "verifying" ? "true" : "false");
-      check.disabled = state !== "idle";
+      check.disabled = state === "verifying" || state === "verified";
       check.innerHTML = state === "verifying" ? '<span class="spin"></span>' : state === "verified" ? TICK : "";
       this.shadowRoot.querySelector(".label").textContent =
         state === "verifying" ? this._t().verifying : this._t().label;
@@ -339,6 +350,7 @@
         .catch(function (err) {
           self._busy = false;
           self.reset();
+          self._setState("warn");
           var message =
             err instanceof TypeError ? t.network : err.message === "rate-limited" ? t.busy : t.failed;
           self._showMsg(message);
