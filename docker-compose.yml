@@ -10,6 +10,9 @@ services:
       ORACLE_PASSWORD: ${ORACLE_PASSWORD:?set ORACLE_PASSWORD in docker/.env}
       APP_USER: ${APP_USER:-daily_office}
       APP_USER_PASSWORD: ${APP_USER_PASSWORD:?set APP_USER_PASSWORD in docker/.env}
+      # Consumed by docker/db/setup/10-apex-26.1.sh, not by the base image itself.
+      APEX_ADMIN_PASSWORD: ${APEX_ADMIN_PASSWORD:?set APEX_ADMIN_PASSWORD in docker/.env}
+      APEX_REST_PASSWORD: ${APEX_REST_PASSWORD:?set APEX_REST_PASSWORD in docker/.env}
     ports:
       - "1521:1521"
     volumes:
