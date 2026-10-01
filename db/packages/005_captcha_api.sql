@@ -1,7 +1,8 @@
 -- "I'm not a robot" captcha — server side, in PL/SQL, for the APEX login page.
 -- Same protocol as not-robot-captcha/server/core.js, so the unchanged browser
--- widget (not-robot-captcha/widget/not-robot.js) talks to it through ORDS
--- (db/packages/006_captcha_ords.sql):
+-- widget (not-robot-captcha/widget/not-robot.js) talks to it either through
+-- ORDS (db/packages/006_captcha_ords.sql) or, where there is no ORDS (e.g.
+-- APEX on mod_plsql), through two APEX Ajax Callbacks calling ajax_response:
 --
 --   1. issue_challenge  → random salt + opaque challenge token (row in captcha_challenges).
 --   2. The widget finds a nonce so sha256(salt || ':' || nonce) starts with
@@ -11,6 +12,8 @@
 --   4. consume_pass     → the login page's validation accepts each pass exactly once.
 --
 -- Requires: GRANT EXECUTE ON SYS.DBMS_CRYPTO TO <schema> (docker/db/setup/20-captcha-grants.sh).
+-- Runs on Oracle 11g and later: 11g has no DBMS_CRYPTO.HASH_SH256, so SHA-256
+-- is also implemented in plain PL/SQL and chosen by conditional compilation.
 --
 -- Every state change runs in an autonomous transaction, so it sticks even when
 -- the caller rolls back — in particular a failed login still burns its pass
@@ -62,8 +65,22 @@ CREATE OR REPLACE PACKAGE captcha_api AS
     -- ready for an APEX "Function Body (returning Error Text)" validation.
     FUNCTION error_message(p_error IN VARCHAR2) RETURN VARCHAR2;
 
+    -- For APEX Ajax Callbacks (no ORDS): writes the JSON the widget expects with htp.p.
+    --   p_action 'challenge' → {"token","salt","bits","wait"} | {"error":"rate-limited"}
+    --   p_action 'solve'     → p_x01 = challenge token, p_x02 = nonce
+    --                          → {"pass","expiresIn"} | {"error":"<code>"}
+    PROCEDURE ajax_response(
+        p_action    IN VARCHAR2,
+        p_x01       IN VARCHAR2 DEFAULT NULL,
+        p_x02       IN VARCHAR2 DEFAULT NULL,
+        p_client_ip IN VARCHAR2 DEFAULT NULL
+    );
+
     -- Leading zero bits of sha256(p_salt || ':' || p_nonce); public for tests.
     FUNCTION pow_zero_bits(p_salt IN VARCHAR2, p_nonce IN NUMBER) RETURN PLS_INTEGER;
+
+    -- SHA-256 in plain PL/SQL (lowercase hex), the 11g code path; public for tests.
+    FUNCTION sha256_plsql_hex(p_input IN VARCHAR2) RETURN VARCHAR2;
 
 END captcha_api;
 /
@@ -71,6 +88,13 @@ END captcha_api;
 CREATE OR REPLACE PACKAGE BODY captcha_api AS
 
     c_max_nonce CONSTANT NUMBER := 9007199254740991; -- JS Number.MAX_SAFE_INTEGER
+
+    -- For sha256_plsql below (declarations must precede all subprogram bodies).
+    c_2_32 CONSTANT NUMBER := 4294967296;
+    c_mask CONSTANT NUMBER := 4294967295;
+
+    TYPE t_words IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+    g_k t_words;  -- round constants, filled in the package initialisation block
 
     FUNCTION random_hex(p_bytes IN PLS_INTEGER) RETURN VARCHAR2 IS
     BEGIN
@@ -94,15 +118,98 @@ CREATE OR REPLACE PACKAGE BODY captcha_api AS
         RETURN NUMTODSINTERVAL(p_ms / 1000, 'SECOND');
     END ms_interval;
 
+    ---------------------------------------------------------------------
+    -- SHA-256 (FIPS 180-4) in plain PL/SQL, for Oracle 11g. PL/SQL only has
+    -- BITAND, so XOR/rotate/shift are built arithmetically on 32-bit words
+    -- held in NUMBER. Slow-ish, but the server hashes once per verification.
+    ---------------------------------------------------------------------
+    FUNCTION w_xor(a IN NUMBER, b IN NUMBER) RETURN NUMBER IS
+    BEGIN
+        RETURN a + b - 2 * BITAND(a, b);
+    END w_xor;
+
+    FUNCTION w_rotr(x IN NUMBER, n IN PLS_INTEGER) RETURN NUMBER IS
+    BEGIN
+        RETURN TRUNC(x / POWER(2, n)) + MOD(x, POWER(2, n)) * POWER(2, 32 - n);
+    END w_rotr;
+
+    FUNCTION w_shr(x IN NUMBER, n IN PLS_INTEGER) RETURN NUMBER IS
+    BEGIN
+        RETURN TRUNC(x / POWER(2, n));
+    END w_shr;
+
+    FUNCTION sha256_plsql(p_input IN RAW) RETURN RAW IS
+        l_len PLS_INTEGER := NVL(UTL_RAW.LENGTH(p_input), 0);
+        -- Pad: 0x80, zero bytes, then the bit length as a 64-bit big-endian
+        -- number, to a multiple of 64 bytes. (RPAD to length 0 gives NULL,
+        -- which concatenates as empty — no special case needed.)
+        l_hex VARCHAR2(32767) := RAWTOHEX(p_input) || '80'
+                                 || RPAD('0', 2 * MOD(55 - MOD(l_len, 64) + 64, 64), '0')
+                                 || LPAD(TO_CHAR(l_len * 8, 'FMXXXXXXXXXXXXXXXX'), 16, '0');
+        h  t_words;
+        w  t_words;
+        a NUMBER; b NUMBER; c NUMBER; d NUMBER; e NUMBER; f NUMBER; g NUMBER; hh NUMBER;
+        s0 NUMBER; s1 NUMBER; t1 NUMBER; t2 NUMBER;
+        l_out VARCHAR2(64);
+    BEGIN
+        h(0) := 1779033703; h(1) := 3144134277; h(2) := 1013904242; h(3) := 2773480762;
+        h(4) := 1359893119; h(5) := 2600822924; h(6) := 528734635;  h(7) := 1541459225;
+
+        FOR blk IN 0 .. LENGTH(l_hex) / 128 - 1 LOOP
+            FOR t IN 0 .. 15 LOOP
+                w(t) := TO_NUMBER(SUBSTR(l_hex, blk * 128 + t * 8 + 1, 8), 'XXXXXXXX');
+            END LOOP;
+            FOR t IN 16 .. 63 LOOP
+                s0 := w_xor(w_xor(w_rotr(w(t - 15), 7), w_rotr(w(t - 15), 18)), w_shr(w(t - 15), 3));
+                s1 := w_xor(w_xor(w_rotr(w(t - 2), 17), w_rotr(w(t - 2), 19)), w_shr(w(t - 2), 10));
+                w(t) := MOD(w(t - 16) + s0 + w(t - 7) + s1, c_2_32);
+            END LOOP;
+
+            a := h(0); b := h(1); c := h(2); d := h(3);
+            e := h(4); f := h(5); g := h(6); hh := h(7);
+            FOR t IN 0 .. 63 LOOP
+                s1 := w_xor(w_xor(w_rotr(e, 6), w_rotr(e, 11)), w_rotr(e, 25));
+                -- ch = (e AND f) XOR (NOT e AND g); the two terms share no bits, so XOR = +.
+                t1 := MOD(hh + s1 + BITAND(e, f) + BITAND(c_mask - e, g) + g_k(t) + w(t), c_2_32);
+                s0 := w_xor(w_xor(w_rotr(a, 2), w_rotr(a, 13)), w_rotr(a, 22));
+                t2 := MOD(s0 + w_xor(w_xor(BITAND(a, b), BITAND(a, c)), BITAND(b, c)), c_2_32);
+                hh := g; g := f; f := e; e := MOD(d + t1, c_2_32);
+                d := c; c := b; b := a; a := MOD(t1 + t2, c_2_32);
+            END LOOP;
+            h(0) := MOD(h(0) + a, c_2_32);  h(1) := MOD(h(1) + b, c_2_32);
+            h(2) := MOD(h(2) + c, c_2_32);  h(3) := MOD(h(3) + d, c_2_32);
+            h(4) := MOD(h(4) + e, c_2_32);  h(5) := MOD(h(5) + f, c_2_32);
+            h(6) := MOD(h(6) + g, c_2_32);  h(7) := MOD(h(7) + hh, c_2_32);
+        END LOOP;
+
+        FOR i IN 0 .. 7 LOOP
+            l_out := l_out || LPAD(TO_CHAR(h(i), 'FMXXXXXXXX'), 8, '0');
+        END LOOP;
+        RETURN HEXTORAW(l_out);
+    END sha256_plsql;
+
+    FUNCTION sha256_plsql_hex(p_input IN VARCHAR2) RETURN VARCHAR2 IS
+    BEGIN
+        RETURN LOWER(RAWTOHEX(sha256_plsql(UTL_I18N.STRING_TO_RAW(p_input, 'AL32UTF8'))));
+    END sha256_plsql_hex;
+
+    FUNCTION sha256(p_input IN RAW) RETURN RAW IS
+    BEGIN
+        $IF DBMS_DB_VERSION.VERSION < 12 $THEN
+            RETURN sha256_plsql(p_input);
+        $ELSE
+            RETURN DBMS_CRYPTO.HASH(p_input, DBMS_CRYPTO.HASH_SH256);
+        $END
+    END sha256;
+
     FUNCTION pow_zero_bits(p_salt IN VARCHAR2, p_nonce IN NUMBER) RETURN PLS_INTEGER IS
         l_hash RAW(32);
         l_bits PLS_INTEGER := 0;
         l_byte PLS_INTEGER;
     BEGIN
         -- 'FM' + 16 digits prints the nonce exactly like JS String(nonce) for safe integers.
-        l_hash := DBMS_CRYPTO.HASH(
-                      UTL_I18N.STRING_TO_RAW(p_salt || ':' || TO_CHAR(p_nonce, 'FM9999999999999999'), 'AL32UTF8'),
-                      DBMS_CRYPTO.HASH_SH256);
+        l_hash := sha256(
+                      UTL_I18N.STRING_TO_RAW(p_salt || ':' || TO_CHAR(p_nonce, 'FM9999999999999999'), 'AL32UTF8'));
 
         FOR i IN 1 .. UTL_RAW.LENGTH(l_hash) LOOP
             l_byte := TO_NUMBER(RAWTOHEX(UTL_RAW.SUBSTR(l_hash, i, 1)), 'XX');
@@ -266,5 +373,68 @@ CREATE OR REPLACE PACKAGE BODY captcha_api AS
         END;
     END error_message;
 
+    PROCEDURE ajax_response(
+        p_action    IN VARCHAR2,
+        p_x01       IN VARCHAR2 DEFAULT NULL,
+        p_x02       IN VARCHAR2 DEFAULT NULL,
+        p_client_ip IN VARCHAR2 DEFAULT NULL
+    ) IS
+        l_token VARCHAR2(64);
+        l_salt  VARCHAR2(32);
+        l_bits  PLS_INTEGER;
+        l_wait  PLS_INTEGER;
+        l_nonce NUMBER;
+        l_pass  VARCHAR2(64);
+        l_exp   PLS_INTEGER;
+        l_err   VARCHAR2(40);
+    BEGIN
+        -- Every value written below is hex, a number or a fixed error code, so
+        -- no JSON escaping is needed (and no APEX_JSON, which older APEX lacks).
+        IF p_action = 'challenge' THEN
+            BEGIN
+                issue_challenge(l_token, l_salt, l_bits, l_wait, p_client_ip => p_client_ip);
+                htp.p('{"token":"' || l_token || '","salt":"' || l_salt
+                      || '","bits":' || l_bits || ',"wait":' || l_wait || '}');
+            EXCEPTION
+                WHEN e_rate_limited THEN
+                    htp.p('{"error":"rate-limited"}');
+            END;
+        ELSIF p_action = 'solve' THEN
+            BEGIN
+                l_nonce := TO_NUMBER(p_x02);
+            EXCEPTION
+                WHEN VALUE_ERROR THEN
+                    l_nonce := NULL; -- verify_solution reports invalid-nonce
+            END;
+            verify_solution(p_x01, l_nonce, l_pass, l_exp, l_err);
+            IF l_err IS NULL THEN
+                htp.p('{"pass":"' || l_pass || '","expiresIn":' || l_exp || '}');
+            ELSE
+                htp.p('{"error":"' || l_err || '"}');
+            END IF;
+        ELSE
+            htp.p('{"error":"unknown-action"}');
+        END IF;
+    END ajax_response;
+
+BEGIN
+    -- SHA-256 round constants (first 32 bits of the fractional parts of the
+    -- cube roots of the first 64 primes), for sha256_plsql.
+        g_k(0) := 1116352408; g_k(1) := 1899447441; g_k(2) := 3049323471; g_k(3) := 3921009573;
+        g_k(4) := 961987163; g_k(5) := 1508970993; g_k(6) := 2453635748; g_k(7) := 2870763221;
+        g_k(8) := 3624381080; g_k(9) := 310598401; g_k(10) := 607225278; g_k(11) := 1426881987;
+        g_k(12) := 1925078388; g_k(13) := 2162078206; g_k(14) := 2614888103; g_k(15) := 3248222580;
+        g_k(16) := 3835390401; g_k(17) := 4022224774; g_k(18) := 264347078; g_k(19) := 604807628;
+        g_k(20) := 770255983; g_k(21) := 1249150122; g_k(22) := 1555081692; g_k(23) := 1996064986;
+        g_k(24) := 2554220882; g_k(25) := 2821834349; g_k(26) := 2952996808; g_k(27) := 3210313671;
+        g_k(28) := 3336571891; g_k(29) := 3584528711; g_k(30) := 113926993; g_k(31) := 338241895;
+        g_k(32) := 666307205; g_k(33) := 773529912; g_k(34) := 1294757372; g_k(35) := 1396182291;
+        g_k(36) := 1695183700; g_k(37) := 1986661051; g_k(38) := 2177026350; g_k(39) := 2456956037;
+        g_k(40) := 2730485921; g_k(41) := 2820302411; g_k(42) := 3259730800; g_k(43) := 3345764771;
+        g_k(44) := 3516065817; g_k(45) := 3600352804; g_k(46) := 4094571909; g_k(47) := 275423344;
+        g_k(48) := 430227734; g_k(49) := 506948616; g_k(50) := 659060556; g_k(51) := 883997877;
+        g_k(52) := 958139571; g_k(53) := 1322822218; g_k(54) := 1537002063; g_k(55) := 1747873779;
+        g_k(56) := 1955562222; g_k(57) := 2024104815; g_k(58) := 2227730452; g_k(59) := 2361852424;
+        g_k(60) := 2428436474; g_k(61) := 2756734187; g_k(62) := 3204031479; g_k(63) := 3329325298;
 END captcha_api;
 /

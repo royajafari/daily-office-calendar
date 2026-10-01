@@ -1,0 +1,67 @@
+# Page 9999 — ورود (Login) با «من ربات نیستم» — variant WITHOUT ORDS
+# For APEX 18+ served by Oracle HTTP Server / mod_plsql (or the Embedded PL/SQL
+# Gateway) on Oracle 11g+. Same captcha_api package; the widget talks to two
+# Ajax Callback processes on this page instead of ORDS endpoints.
+# With ORDS available, page-9999-login.apexlang works too.
+# Step-by-step setup guide: docs/apex-captcha-setup-no-ords.md
+
+page:
+  id: 9999
+  name: "ورود"
+  authentication: Public
+  # Upload not-robot-captcha/widget/not-robot.js as a Static Application File first.
+  # APEX 18 references static application files with #APP_IMAGES# (#APP_FILES# came later).
+  javascript_file_urls: "#APP_IMAGES#not-robot.js"
+  javascript_execute_when_page_loads: "@apex/shared/login-captcha-ajax.js"
+
+  regions:
+    - name: "Login"
+      type: Login (APEX default)
+      items:
+        - { name: P9999_USERNAME, type: Text Field, required: true }
+        - { name: P9999_PASSWORD, type: Password,   required: true }
+        # Filled by login-captcha-ajax.js. Value Protected MUST be "No".
+        - { name: P9999_CAPTCHA_TOKEN, type: Hidden, value_protected: false }
+
+    - name: "Captcha"
+      type: Static Content
+      position: after P9999_PASSWORD, before button LOGIN
+      template: Blank with Attributes
+      # No server attribute: login-captcha-ajax.js sets widget.transport.
+      html: |
+        <not-robot-captcha name="" guard="off"></not-robot-captcha>
+
+  processes:
+    - name: "CAPTCHA_CHALLENGE"
+      point: Ajax Callback
+      type: PL/SQL
+      code: |
+        captcha_api.ajax_response(
+          p_action    => 'challenge',
+          p_client_ip => owa_util.get_cgi_env('REMOTE_ADDR'));
+
+    - name: "CAPTCHA_SOLVE"
+      point: Ajax Callback
+      type: PL/SQL
+      code: |
+        captcha_api.ajax_response(
+          p_action => 'solve',
+          p_x01    => apex_application.g_x01,
+          p_x02    => apex_application.g_x02);
+
+    - name: "Login"
+      point: On Submit (button LOGIN)
+      type: PL/SQL (APEX default)
+      code: |
+        apex_authentication.login(
+          p_username => :P9999_USERNAME,
+          p_password => :P9999_PASSWORD);
+
+  validations:
+    - name: "Captcha"
+      type: PL/SQL Function Body (returning Error Text)
+      when_button_pressed: LOGIN
+      sequence: 5            # before every other validation and before the Login process
+      code: |
+        RETURN captcha_api.error_message(captcha_api.consume_pass(:P9999_CAPTCHA_TOKEN));
+      display_location: Inline in Notification

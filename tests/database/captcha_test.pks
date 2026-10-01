@@ -38,5 +38,14 @@ CREATE OR REPLACE PACKAGE captcha_test AS
     --%test(The 31st challenge from one IP within a minute is refused; other IPs are not affected)
     PROCEDURE per_ip_rate_limit;
 
+    --%test(Plain PL/SQL SHA-256 (the 11g path) matches the FIPS 180-4 test vectors)
+    PROCEDURE sha256_plsql_vectors;
+
+    --%test(Plain PL/SQL SHA-256 matches DBMS_CRYPTO for 1..129-byte inputs (12c+ only))
+    PROCEDURE sha256_matches_dbms_crypto;
+
+    --%test(ajax_response writes the JSON the widget expects, for APEX Ajax Callbacks)
+    PROCEDURE ajax_response_json;
+
 END captcha_test;
 /

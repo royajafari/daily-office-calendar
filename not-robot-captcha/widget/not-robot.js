@@ -16,7 +16,8 @@
  *   input, e.g. when the page copies the token itself), lang ("fa" | "en"),
  *   guard="off" to disable the submit guard below.
  * Events: "captcha-verified" (detail.token), "captcha-expired", "captcha-error" (detail.message).
- * Methods: reset(), requireValid(). Properties: token, valid.
+ * Methods: reset(), requireValid(). Properties: token, valid, transport
+ *   (optional function(path, body) → Promise<json> replacing fetch to `server`).
  *
  * Submit guard: if the enclosing form is submitted while the token is missing
  * or expired, the submit is cancelled (so typed data survives) and the user
@@ -306,6 +307,15 @@
     }
 
     _post(path, body) {
+      // A page can route the two calls itself (e.g. APEX Ajax Callbacks where
+      // there is no REST endpoint): transport(path, body) → Promise of the JSON;
+      // reject with Error(code) for a server error, TypeError for a network one.
+      if (typeof this.transport === "function") {
+        return Promise.resolve(this.transport(path, body || {})).then(function (json) {
+          if (json && json.error) throw new Error(json.error);
+          return json;
+        });
+      }
       return fetch(this._server() + path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
