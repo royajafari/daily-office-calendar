@@ -12,10 +12,11 @@ CREATE OR REPLACE PACKAGE BODY captcha_test AS
         wait  PLS_INTEGER
     );
 
-    FUNCTION new_challenge RETURN t_challenge IS
+    FUNCTION new_challenge(p_client_ip IN VARCHAR2 DEFAULT NULL) RETURN t_challenge IS
         l_ch t_challenge;
     BEGIN
-        captcha_api.issue_challenge(l_ch.token, l_ch.salt, l_ch.bits, l_ch.wait, p_difficulty => c_bits);
+        captcha_api.issue_challenge(l_ch.token, l_ch.salt, l_ch.bits, l_ch.wait,
+                                    p_difficulty => c_bits, p_client_ip => p_client_ip);
         g_tokens.EXTEND;
         g_tokens(g_tokens.LAST) := l_ch.token;
         RETURN l_ch;
@@ -175,6 +176,30 @@ CREATE OR REPLACE PACKAGE BODY captcha_test AS
         ut.expect(captcha_api.error_message('token-reused')).to_be_like('%قبلاً%');
         ut.expect(captcha_api.error_message('something-else')).to_be_like('%ناموفق%');
     END error_messages;
+
+    PROCEDURE per_ip_rate_limit IS
+        -- Documentation-range addresses (RFC 5737), so they never clash with real traffic.
+        c_ip     CONSTANT VARCHAR2(45) := '203.0.113.7';
+        l_ch     t_challenge;
+        l_raised BOOLEAN := FALSE;
+    BEGIN
+        FOR i IN 1 .. captcha_api.c_max_per_ip_per_minute LOOP
+            l_ch := new_challenge(c_ip);
+        END LOOP;
+
+        BEGIN
+            l_ch := new_challenge(c_ip);
+        EXCEPTION
+            WHEN captcha_api.e_rate_limited THEN
+                l_raised := TRUE;
+        END;
+        ut.expect(l_raised).to_be_true();
+
+        l_ch := new_challenge('203.0.113.8');
+        ut.expect(l_ch.token).not_to_be_null();
+        l_ch := new_challenge(NULL);
+        ut.expect(l_ch.token).not_to_be_null();
+    END per_ip_rate_limit;
 
 END captcha_test;
 /

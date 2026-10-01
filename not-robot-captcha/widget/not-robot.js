@@ -134,6 +134,7 @@
       required: "لطفاً ابتدا تیک «من ربات نیستم» را بزنید.",
       failed: "تأیید ناموفق بود. دوباره تیک بزنید.",
       network: "ارتباط با سرور برقرار نشد. دوباره تیک بزنید.",
+      busy: "درخواست‌ها زیاد است. یک دقیقه بعد دوباره تیک بزنید.",
     },
     en: {
       label: "I'm not a robot",
@@ -143,6 +144,7 @@
       required: "Please tick \"I'm not a robot\" first.",
       failed: "Verification failed. Please tick again.",
       network: "Could not reach the server. Please tick again.",
+      busy: "Too many requests. Please tick again in a minute.",
     },
   };
 
@@ -337,7 +339,8 @@
         .catch(function (err) {
           self._busy = false;
           self.reset();
-          var message = err instanceof TypeError ? t.network : t.failed;
+          var message =
+            err instanceof TypeError ? t.network : err.message === "rate-limited" ? t.busy : t.failed;
           self._showMsg(message);
           self.dispatchEvent(
             new CustomEvent("captcha-error", { bubbles: true, detail: { message: message, code: err.message } })

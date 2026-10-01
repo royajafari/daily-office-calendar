@@ -7,7 +7,7 @@
 --
 -- Endpoints (the paths not-robot.js expects; set its `server` attribute to
 -- <ords base>/<schema alias>/captcha):
---   POST .../captcha/challenge   -> { token, salt, bits, wait }
+--   POST .../captcha/challenge   -> { token, salt, bits, wait } | 429 { error: "rate-limited" }
 --   POST .../captcha/solve       { token, nonce } -> { pass, expiresIn } | 400 { error }
 --
 -- Deliberately public (the login page is pre-authentication). There is no
@@ -43,12 +43,23 @@ BEGIN
                 l_bits  PLS_INTEGER;
                 l_wait  PLS_INTEGER;
             BEGIN
-                captcha_api.issue_challenge(l_token, l_salt, l_bits, l_wait);
+                -- Behind a reverse proxy REMOTE_ADDR is the proxy, which turns the
+                -- per-IP limit into one shared limit (see captcha_api).
+                captcha_api.issue_challenge(
+                    p_token     => l_token,
+                    p_salt      => l_salt,
+                    p_bits      => l_bits,
+                    p_wait_ms   => l_wait,
+                    p_client_ip => owa_util.get_cgi_env('REMOTE_ADDR'));
                 :challenge_token := l_token;
                 :salt            := l_salt;
                 :bits            := l_bits;
                 :wait_ms         := l_wait;
                 :status_code     := 200;
+            EXCEPTION
+                WHEN captcha_api.e_rate_limited THEN
+                    :error_code  := 'rate-limited';
+                    :status_code := 429;
             END;
         ]'
     );
@@ -59,6 +70,7 @@ BEGIN
         UNION ALL SELECT 'salt', 'salt',    'STRING' FROM dual
         UNION ALL SELECT 'bits', 'bits',    'INT'    FROM dual
         UNION ALL SELECT 'wait', 'wait_ms', 'INT'    FROM dual
+        UNION ALL SELECT 'error', 'error_code', 'STRING' FROM dual
     ) LOOP
         ords.define_parameter(
             p_module_name        => 'daily.office.captcha',

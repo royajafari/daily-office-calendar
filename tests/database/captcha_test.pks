@@ -35,5 +35,8 @@ CREATE OR REPLACE PACKAGE captcha_test AS
     --%test(error_message returns Persian text for errors and NULL for success)
     PROCEDURE error_messages;
 
+    --%test(The 31st challenge from one IP within a minute is refused; other IPs are not affected)
+    PROCEDURE per_ip_rate_limit;
+
 END captcha_test;
 /

@@ -9,6 +9,8 @@ databaseChangeLog:
       id: daily-office-008-captcha-ords
       author: royajafari
       comment: Public ORDS endpoints (challenge, solve) for the login page captcha widget
+      # define_module replaces an existing module of the same name, so re-running is safe.
+      runOnChange: true
       changes:
         - sqlFile:
             path: db/packages/006_captcha_ords.sql

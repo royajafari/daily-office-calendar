@@ -11,8 +11,10 @@ CREATE TABLE captcha_challenges (
     pass_token      VARCHAR2(64),
     pass_expires_at TIMESTAMP WITH TIME ZONE,
     pass_used_at    TIMESTAMP WITH TIME ZONE,
+    client_ip       VARCHAR2(45),  -- who asked; for per-IP limits on the public endpoint
     CONSTRAINT pk_captcha_challenges PRIMARY KEY (challenge_token),
     CONSTRAINT uq_captcha_challenges_pass UNIQUE (pass_token)
 );
 
 CREATE INDEX ix_captcha_challenges_issued ON captcha_challenges (issued_at);
+CREATE INDEX ix_captcha_challenges_ip ON captcha_challenges (client_ip, issued_at);

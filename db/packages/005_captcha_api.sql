@@ -23,12 +23,22 @@ CREATE OR REPLACE PACKAGE captcha_api AS
     c_pass_ttl_ms      CONSTANT PLS_INTEGER := 120000;
     c_min_solve_ms     CONSTANT PLS_INTEGER := 400;    -- faster than this is not a person
 
+    -- The challenge endpoint is public and every call stores a row, so it is capped:
+    c_max_per_ip_per_minute CONSTANT PLS_INTEGER := 30;     -- generous for one office behind NAT
+    c_max_stored            CONSTANT PLS_INTEGER := 100000; -- whole table (rows live an hour), against many-IP floods
+
+    e_rate_limited EXCEPTION;
+    PRAGMA EXCEPTION_INIT(e_rate_limited, -20010);
+
+    -- Raises e_rate_limited (ORA-20010) when a limit above is reached.
+    -- p_client_ip NULL skips the per-IP limit (the table-wide cap still applies).
     PROCEDURE issue_challenge(
         p_token      OUT VARCHAR2,
         p_salt       OUT VARCHAR2,
         p_bits       OUT PLS_INTEGER,
         p_wait_ms    OUT PLS_INTEGER,
-        p_difficulty IN  PLS_INTEGER DEFAULT c_bits
+        p_difficulty IN  PLS_INTEGER DEFAULT c_bits,
+        p_client_ip  IN  VARCHAR2 DEFAULT NULL
     );
 
     -- p_error is NULL on success, otherwise one of: invalid-challenge,
@@ -111,15 +121,35 @@ CREATE OR REPLACE PACKAGE BODY captcha_api AS
         p_salt       OUT VARCHAR2,
         p_bits       OUT PLS_INTEGER,
         p_wait_ms    OUT PLS_INTEGER,
-        p_difficulty IN  PLS_INTEGER DEFAULT c_bits
+        p_difficulty IN  PLS_INTEGER DEFAULT c_bits,
+        p_client_ip  IN  VARCHAR2 DEFAULT NULL
     ) IS
         PRAGMA AUTONOMOUS_TRANSACTION;
         -- Computed in PL/SQL: private package functions can't be called from SQL.
         l_now     TIMESTAMP WITH TIME ZONE := SYSTIMESTAMP;
         l_expires TIMESTAMP WITH TIME ZONE := l_now + ms_interval(c_challenge_ttl_ms);
+        l_count   PLS_INTEGER;
+        l_ip      captcha_challenges.client_ip%TYPE := SUBSTR(p_client_ip, 1, 45);
     BEGIN
         -- Housekeeping: nothing outlives challenge TTL + pass TTL, an hour is plenty.
-        DELETE FROM captcha_challenges WHERE issued_at < SYSTIMESTAMP - INTERVAL '1' HOUR;
+        DELETE FROM captcha_challenges WHERE issued_at < l_now - INTERVAL '1' HOUR;
+        -- Keep the purge, and end the autonomous transaction before any raise (else ORA-06519).
+        COMMIT;
+
+        SELECT COUNT(*) INTO l_count FROM captcha_challenges;
+        IF l_count >= c_max_stored THEN
+            RAISE_APPLICATION_ERROR(-20010, 'Too many captcha challenges stored; try again later.');
+        END IF;
+
+        IF l_ip IS NOT NULL THEN
+            SELECT COUNT(*) INTO l_count
+            FROM   captcha_challenges
+            WHERE  client_ip = l_ip
+            AND    issued_at > l_now - INTERVAL '1' MINUTE;
+            IF l_count >= c_max_per_ip_per_minute THEN
+                RAISE_APPLICATION_ERROR(-20010, 'Too many captcha challenges from this client; try again in a minute.');
+            END IF;
+        END IF;
 
         p_token   := random_hex(32);
         p_salt    := random_hex(16);
@@ -127,8 +157,8 @@ CREATE OR REPLACE PACKAGE BODY captcha_api AS
         -- The widget holds a lucky fast answer this long so it isn't rejected as too-fast.
         p_wait_ms := c_min_solve_ms;
 
-        INSERT INTO captcha_challenges (challenge_token, salt, bits, issued_at, expires_at)
-        VALUES (p_token, p_salt, p_bits, l_now, l_expires);
+        INSERT INTO captcha_challenges (challenge_token, salt, bits, issued_at, expires_at, client_ip)
+        VALUES (p_token, p_salt, p_bits, l_now, l_expires, l_ip);
         COMMIT;
     END issue_challenge;
 
