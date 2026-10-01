@@ -44,6 +44,7 @@ application:
     - { page: 50, title: "نظارت بر همگام‌سازی",     icon: fa-refresh,         auth: Is Office Head }
 
   pages:
+    - apex/pages/page-9999-login.apexlang
     - apex/pages/page-010-calendar.apexlang
     - apex/pages/page-020-availability.apexlang
     - apex/pages/page-030-request.apexlang

@@ -1,0 +1,51 @@
+# Page 9999 — ورود (Login) با «من ربات نیستم»
+# Captcha: widget not-robot-captcha/widget/not-robot.js, server side
+# captcha_api (db/packages/005_captcha_api.sql) + ORDS (006_captcha_ords.sql).
+
+page:
+  id: 9999
+  name: "ورود"
+  authentication: Public
+  # Upload not-robot-captcha/widget/not-robot.js as a Static Application File first.
+  javascript_file_urls: "#APP_FILES#not-robot.js"
+  javascript_execute_when_page_loads: "@apex/shared/login-captcha.js"
+
+  regions:
+    - name: "Login"
+      type: Login (APEX default)
+      items:
+        - { name: P9999_USERNAME, type: Text Field, required: true }
+        - { name: P9999_PASSWORD, type: Password,   required: true }
+        # Filled by login-captcha.js. Value Protected MUST be "No": the value is
+        # set in the browser, and session_state_protection is ENABLED app-wide.
+        - { name: P9999_CAPTCHA_TOKEN, type: Hidden, value_protected: false }
+
+    - name: "Captcha"
+      type: Static Content
+      position: after P9999_PASSWORD, before button LOGIN
+      template: Blank with Attributes
+      # server = <ords base>/<REST alias of the DAILY_OFFICE schema>/captcha
+      # name=""  → no extra hidden <input> (APEX only submits its own items)
+      # guard="off" → login-captcha.js does the check on apexbeforepagesubmit
+      html: |
+        <not-robot-captcha server="/ords/daily_office/captcha" name="" guard="off"></not-robot-captcha>
+
+  validations:
+    - name: "Captcha"
+      type: Function Body (returning Error Text)
+      when_button_pressed: LOGIN
+      sequence: 5            # before every other validation and before the Login process
+      code: |
+        RETURN captcha_api.error_message(captcha_api.consume_pass(:P9999_CAPTCHA_TOKEN));
+      display_location: Inline in Notification
+      # consume_pass is autonomous: the token is burned even if the password
+      # then turns out wrong, so each solved captcha allows one login attempt.
+
+  processes:
+    - name: "Login"
+      point: On Submit (button LOGIN)
+      type: PL/SQL (APEX default)
+      code: |
+        apex_authentication.login(
+          p_username => :P9999_USERNAME,
+          p_password => :P9999_PASSWORD);

@@ -1,0 +1,23 @@
+# NOT included by db.changelog-master.yaml on purpose — same reason as
+# 2026-09-10-02-ords-rest.yaml (needs the ORDS.* API). Apply once ORDS is up,
+# after db.changelog-master.yaml (it calls captcha_api):
+#
+#   liquibase --changelog-file=db/changelog/2026-09-30-02-captcha-ords.yaml update
+#
+databaseChangeLog:
+  - changeSet:
+      id: daily-office-008-captcha-ords
+      author: royajafari
+      comment: Public ORDS endpoints (challenge, solve) for the login page captcha widget
+      changes:
+        - sqlFile:
+            path: db/packages/006_captcha_ords.sql
+            relativeToChangelogFile: false
+            splitStatements: false
+      rollback:
+        - sql:
+            sql: |
+              BEGIN
+                ords.delete_module(p_module_name => 'daily.office.captcha');
+                COMMIT;
+              END;

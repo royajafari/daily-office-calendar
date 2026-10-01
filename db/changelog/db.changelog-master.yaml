@@ -5,3 +5,6 @@ databaseChangeLog:
   - include:
       file: db/changelog/2026-09-17-01-review-note.yaml
       relativeToChangelogFile: false
+  - include:
+      file: db/changelog/2026-09-30-01-captcha.yaml
+      relativeToChangelogFile: false

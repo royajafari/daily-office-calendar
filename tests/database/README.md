@@ -16,6 +16,8 @@
 ```sql
 @tests/database/daily_office_test.pks
 @tests/database/daily_office_test.pkb
+@tests/database/captcha_test.pks
+@tests/database/captcha_test.pkb
 ```
 
 ## اجرا
@@ -23,6 +25,7 @@
 ```sql
 SET SERVEROUTPUT ON
 EXEC ut.run('daily_office_test');
+EXEC ut.run('captcha_test');
 ```
 
 یا از طریق SQLcl:
@@ -35,5 +38,7 @@ exec ut.run('daily_office_test');
 ```
 
 ## وضعیت
+
+`captcha_test` (۹ تست) در تاریخ ۲۰۲۶-۰۹-۳۰ روی Oracle 23ai Free (`gvenzl/oracle-free:23-slim-faststart`) با utPLSQL v3.2.3 اجرا شد و همه‌ی تست‌ها پاس شدند. این تست‌ها commit می‌کنند (`--%rollback(manual)`)، چون `captcha_api` از تراکنش مستقل استفاده می‌کند. هر ردیفی که تست‌ها بسازند، بعد از هر تست پاک می‌شود.
 
 این تست‌ها هنوز روی یک نمونه‌ی زنده‌ی Oracle اجرا نشده‌اند — این کار در فاز ۷ (بعد از دریافت `docker/.env` و ZIP رسمی APEX از کاربر) انجام می‌شود. تا آن زمان، صحت نحوی/منطقی از طریق بازبینی کد تضمین می‌شود.

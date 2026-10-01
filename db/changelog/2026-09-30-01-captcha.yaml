@@ -1,0 +1,34 @@
+# Needs EXECUTE on SYS.DBMS_CRYPTO for this schema (granted on first container
+# init by docker/db/setup/20-captcha-grants.sh; on any other database a DBA runs
+#   GRANT EXECUTE ON SYS.DBMS_CRYPTO TO <schema>;
+# before this changelog, otherwise captcha_api's body compiles INVALID).
+databaseChangeLog:
+  - changeSet:
+      id: daily-office-006-captcha-schema
+      author: royajafari
+      comment: captcha_challenges table backing the login page's "I'm not a robot" check
+      changes:
+        - sqlFile:
+            path: db/packages/004_captcha_schema.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: true
+      rollback:
+        - sql:
+            sql: DROP TABLE captcha_challenges PURGE;
+
+  - changeSet:
+      id: daily-office-007-captcha-api
+      author: royajafari
+      comment: captcha_api package (challenge, proof-of-work check, single-use pass)
+      runOnChange: true
+      changes:
+        - sqlFile:
+            path: db/packages/005_captcha_api.sql
+            relativeToChangelogFile: false
+            splitStatements: true
+            stripComments: false
+            endDelimiter: "/"
+      rollback:
+        - sql:
+            sql: DROP PACKAGE captcha_api;
