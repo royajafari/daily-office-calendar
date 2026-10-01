@@ -130,6 +130,8 @@ if (success !== true) return Response.json({ error: "captcha" }, { status: 403 }
 3. `liquibase --changelog-file=db/changelog/2026-09-30-02-captcha-ords.yaml update`.
 4. تنظیمات صفحه‌ی 9999 طبق فایل `page-9999-login.apexlang`.
 
+راهنمای قدم‌به‌قدم، شامل حالت بدون Docker و بدون دسترسی SYS، پیدا کردن آدرس ORDS، تست و رفع اشکال: [docs/apex-captcha-setup.md](../docs/apex-captcha-setup.md).
+
 فرق نسخه‌ی APEX با نسخه‌ی Node:
 - توکن‌ها در جدول ذخیره می‌شوند، پس محدودیت چندنسخه‌ای بخش بعد در APEX وجود ندارد.
 - توکن عبور در APEX **۱۰ دقیقه** اعتبار دارد (در نسخه‌ی Node، ۲ دقیقه)، چون اپلیکیشن فقط داخل شبکه‌ی سازمان در دسترس است. این عدد ثابت `c_pass_ttl_ms` در پکیج `captcha_api` است.

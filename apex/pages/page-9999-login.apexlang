@@ -1,6 +1,7 @@
 # Page 9999 — ورود (Login) با «من ربات نیستم»
 # Captcha: widget not-robot-captcha/widget/not-robot.js, server side
 # captcha_api (db/packages/005_captcha_api.sql) + ORDS (006_captcha_ords.sql).
+# Step-by-step setup guide: docs/apex-captcha-setup.md
 
 page:
   id: 9999
