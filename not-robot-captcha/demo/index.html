@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>دموی کپچا</title>
+    <script src="/not-robot.js" defer></script>
+    <style>
+      :root { color-scheme: light dark; --bg: #f7f7f5; --fg: #1f2430; --card: #fff; --line: #e2e2df; --accent: #2f6f4f; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #15171c; --fg: #eceef2; --card: #1d2026; --line: #2c2f37; --accent: #7fd8a5; } }
+      body { margin: 0; background: var(--bg); color: var(--fg); font-family: Tahoma, "Segoe UI", sans-serif; }
+      form { max-width: 420px; margin: 40px auto; padding: 24px 16px; }
+      label { display: block; margin-bottom: 14px; }
+      input[type="text"] { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 9px 10px;
+        border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); font: inherit; }
+      button { margin-top: 16px; padding: 10px 24px; border: 0; border-radius: 8px; background: var(--accent);
+        color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+      .hint { font-size: 13px; opacity: .7; }
+    </style>
+  </head>
+  <body>
+    <form method="post" action="/demo/submit">
+      <h1>دموی «من ربات نیستم»</h1>
+      <label>نام<input type="text" name="name" required /></label>
+
+      <!-- The only line you add to your own forms: -->
+      <not-robot-captcha></not-robot-captcha>
+
+      <button type="submit" id="send">ارسال</button>
+      <p class="hint">
+        اگر بدون تیک یا با تیکِ منقضی‌شده ارسال کنید، ویجت ارسال را متوقف می‌کند و اطلاعات فرم حفظ می‌شود.
+        امنیت واقعی اما در سرور است (/siteverify)، نه در مرورگر.
+      </p>
+    </form>
+  </body>
+</html>

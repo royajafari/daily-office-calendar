@@ -1,0 +1,14 @@
+{
+  "name": "not-robot-captcha",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-hosted, framework-free \"I'm not a robot\" checkbox with server-side verification.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test"
+  }
+}
