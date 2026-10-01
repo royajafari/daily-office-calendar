@@ -69,7 +69,14 @@ ALTER SESSION SET CONTAINER = FREEPDB1;
 @apexins.sql SYSAUX SYSAUX TEMP /i/
 SQL
 
+# apexins.sql above is the expensive, hard-to-redo step (~6 min) and must
+# succeed or nothing else makes sense — set -e still aborts on it. The two
+# steps below are fast to retry manually (docker exec + sqlplus) once the
+# container is up, so their failure is logged but does NOT abort the
+# container: `|| true` plus an explicit status check, so one bad password
+# doesn't throw away a successful apexins.sql run.
 echo "[10-apex-26.1] Setting APEX admin password..."
+set +e
 sqlplus -s / as sysdba <<SQL
 WHENEVER SQLERROR EXIT SQL.SQLCODE
 ALTER SESSION SET CONTAINER = FREEPDB1;
@@ -78,8 +85,15 @@ ALTER SESSION SET CONTAINER = FREEPDB1;
 
 ${APEX_ADMIN_PASSWORD}
 SQL
+APXCHPWD_STATUS=$?
+set -e
+if [ "$APXCHPWD_STATUS" -ne 0 ]; then
+  echo "[10-apex-26.1] WARNING: apxchpwd.sql failed (status $APXCHPWD_STATUS) — APEX is installed but the admin password is not set yet." >&2
+  echo "[10-apex-26.1] Fix APEX_ADMIN_PASSWORD and re-run: docker exec -e APEX_ADMIN_PASSWORD=... -e APEX_REST_PASSWORD=... daily-office-calendar-oracle-1 bash -c 'cd /opt/oracle/apex-unzipped/apex && sqlplus -s / as sysdba <<SQL2\nALTER SESSION SET CONTAINER = FREEPDB1;\n@apxchpwd.sql\n\n\n\$APEX_ADMIN_PASSWORD\nSQL2'" >&2
+fi
 
 echo "[10-apex-26.1] Configuring APEX RESTful services (ORDS_PUBLIC_USER / APEX_PUBLIC_USER)..."
+set +e
 sqlplus -s / as sysdba <<SQL
 WHENEVER SQLERROR EXIT SQL.SQLCODE
 ALTER SESSION SET CONTAINER = FREEPDB1;
@@ -87,5 +101,10 @@ ALTER SESSION SET CONTAINER = FREEPDB1;
 ${APEX_REST_PASSWORD}
 ${APEX_REST_PASSWORD}
 SQL
+RESTCFG_STATUS=$?
+set -e
+if [ "$RESTCFG_STATUS" -ne 0 ]; then
+  echo "[10-apex-26.1] WARNING: apex_rest_config.sql failed (status $RESTCFG_STATUS) — re-run it manually once APEX_REST_PASSWORD is fixed." >&2
+fi
 
-echo "[10-apex-26.1] APEX 26.1 install complete."
+echo "[10-apex-26.1] APEX 26.1 install script finished (see warnings above, if any)."

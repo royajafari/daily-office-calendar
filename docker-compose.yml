@@ -67,6 +67,10 @@ services:
       - "8080:8080"
     volumes:
       - ords-config:/etc/ords/config
+      # APEX's static assets (/i/...) — ORDS doesn't get these from the DB
+      # container; extracted once from the official ZIP into docker/apex-images
+      # (gitignored) and served via standalone.static.path (set after first start).
+      - ./docker/apex-images:/opt/oracle/apex-images:ro
 
 volumes:
   oracle-data:

@@ -78,6 +78,23 @@ docker compose --profile migrate run --rm liquibase \
   --changelog-file=db/changelog/2026-09-10-03-apex-error-handler.yaml update
 ```
 
+### فایل‌های استاتیک APEX (`/i/...`)
+
+بدون این مرحله، صفحه‌ی ورود APEX باز می‌شود ولی کاملاً بدون استایل است (کنسول مرورگر پر از 404 برای `/i/app_ui/css/...`) — ORDS این فایل‌ها را از خود دیتابیس نمی‌گیرد، باید جداگانه از ZIP استخراج و به ORDS معرفی شوند:
+
+```bash
+# یک‌بار: پوشه‌ی images را کامل از ZIP رسمی استخراج کنید (فیلتر کردن مستقیم
+# با unzip زیرپوشه‌ها مثل app_ui را از قلم می‌اندازد — کل آرشیو را باز کنید)
+unzip -q docker/apex-dist/apex_26.1_en.zip -d /tmp/apex-full-extract
+mkdir -p docker/apex-images
+cp -r /tmp/apex-full-extract/apex/images/. docker/apex-images/
+
+docker compose --profile ords up -d   # با volume جدید دوباره می‌سازد
+docker exec daily-office-calendar-ords-1 \
+  ords --config /etc/ords/config config set standalone.static.path /opt/oracle/apex-images
+docker compose --profile ords restart ords
+```
+
 ## ۷. اجرای تست‌ها
 
 راهنمای کامل: [tests/database/README.md](../tests/database/README.md)

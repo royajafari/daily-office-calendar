@@ -9,6 +9,11 @@ docker/apex-dist/*
 !docker/apex-dist/.gitkeep
 docker/drivers/*.jar
 
+# APEX static assets extracted from the ZIP above, served to ORDS — same
+# license restriction, regenerate from docker/apex-dist/*.zip, don't commit
+docker/apex-images/*
+!docker/apex-images/.gitkeep
+
 # Node / Next.js
 node_modules/
 .next/
