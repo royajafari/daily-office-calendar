@@ -51,14 +51,15 @@ services:
     depends_on:
       oracle:
         condition: service_healthy
+    # Variable names verified against the image's docker-entrypoint.sh
+    # (ORDS 26.2.3): it installs/upgrades ORDS in the database as SYS on first
+    # start, then serves as ORDS_PUBLIC_USER.
     environment:
-      ORACLE_HOST: oracle
-      ORACLE_PORT: 1521
-      ORACLE_SERVICE: FREEPDB1
+      DBHOST: oracle
+      DBPORT: 1521
+      DBSERVICENAME: FREEPDB1
       ORACLE_PWD: ${ORDS_SYS_PASSWORD:?set ORDS_SYS_PASSWORD in docker/.env}
-      # exact variable names are validated against Oracle's published ords
-      # quick-start image docs during the real Phase 7 bring-up; adjust here
-      # if the running container reports a different expected set.
+      ORACLE_USER_PWD: ${ORDS_PUBLIC_USER_PASSWORD:?set ORDS_PUBLIC_USER_PASSWORD in docker/.env}
     ports:
       - "8080:8080"
     volumes:
