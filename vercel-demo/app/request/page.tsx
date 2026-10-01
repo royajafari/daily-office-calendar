@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import DatePicker, { type DateObject } from "react-multi-date-picker";
 import persian from "react-date-object/calendars/persian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import TimePicker from "react-multi-date-picker/plugins/time_picker";
+import type { NotRobotCaptchaElement } from "@/types/not-robot-captcha";
 
 // persian_fa ships [fullName, shortName] pairs for weekdays and defaults to
 // the short form ("شن", "یک", ...); use the full name in both slots so the
@@ -52,6 +54,7 @@ export default function RequestPage() {
   const [status, setStatus] = useState<"idle" | "submitting" | "done" | "error">("idle");
   const [serverError, setServerError] = useState<string | null>(null);
   const [submittedId, setSubmittedId] = useState<number | null>(null);
+  const captchaRef = useRef<NotRobotCaptchaElement>(null);
 
   function updateField<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -59,6 +62,11 @@ export default function RequestPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    // The widget's own submit guard normally stops us before this runs; if
+    // its script failed to load, the server still rejects the missing token.
+    const captcha = captchaRef.current;
+    if (captcha && typeof captcha.requireValid === "function" && !captcha.requireValid()) return;
+
     setStatus("submitting");
     setErrors({});
     setServerError(null);
@@ -66,7 +74,7 @@ export default function RequestPage() {
     const res = await fetch("/api/appointments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, captchaToken: captcha?.token ?? "" }),
     });
 
     if (res.status === 422) {
@@ -82,6 +90,8 @@ export default function RequestPage() {
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}) as Record<string, unknown>);
+      // Past field validation the pass has been used up (or was rejected): tick again.
+      captcha?.reset?.();
       setServerError((body.error as string) ?? "ثبت درخواست ناموفق بود.");
       setStatus("error");
       return;
@@ -189,6 +199,10 @@ export default function RequestPage() {
         />
       </label>
       {errors.endsAt && <p className="error">{errors.endsAt}</p>}
+
+      <Script src="/not-robot.js" />
+      {/* name="": React owns this subtree, so no hidden <input> — the token goes in the JSON body. */}
+      <not-robot-captcha ref={captchaRef} server="/api/captcha" name="" className="captcha" />
 
       {serverError && <p className="error">{serverError}</p>}
 

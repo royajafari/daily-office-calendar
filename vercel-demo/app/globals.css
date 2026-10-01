@@ -401,3 +401,8 @@ button[type="submit"]:disabled {
   padding: 2px 10px;
   margin-bottom: 16px;
 }
+
+/* "I am not a robot" widget (public/not-robot.js) — sits above the submit button */
+not-robot-captcha.captcha {
+  margin: 18px 0 16px;
+}
